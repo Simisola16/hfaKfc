@@ -12,7 +12,7 @@ export const NAV_SECTIONS = [
   {
     section: 'EXECUTIVE OVERVIEW',
     items: [
-      { id: 'dashboard', path: '/dashboard', label: 'Command Dashboard', icon: LayoutDashboard },
+      { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     ]
   },
   {
@@ -23,12 +23,12 @@ export const NAV_SECTIONS = [
         label: 'Stores & Network',
         icon: Store,
         children: [
-          { path: '/stores', label: 'All KFC Stores (249)', icon: Store },
-          { path: '/franchisees', label: 'Franchise Partners (34)', icon: Building2 },
+          { path: '/stores', label: 'All KFC Stores', icon: Store, countKey: 'storesCount' },
+          { path: '/franchisees', label: 'Franchise', icon: Building2, countKey: 'franchiseesCount' },
           { path: '/map', label: 'Interactive UK Map', icon: MapPin },
         ]
       },
-      { id: 'products', path: '/products', label: 'Approved Halal Products', icon: Package },
+      { id: 'products', path: '/products', label: 'Certified Products', icon: Package, countKey: 'productsCount' },
     ]
   },
   {
@@ -64,11 +64,10 @@ export const NAV_SECTIONS = [
 ];
 
 export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpen = false, onCloseMobile }) {
-  const { currentUser, logout, audits, appeals, requests } = useKfc();
+  const { currentUser, dbConnected, stores, franchisees, products, logout, audits, appeals, requests } = useKfc();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Compute live action counts
   const rfpCount = audits.filter(a => a.category === 'Recommend For Pass').length;
   const reviewCount = audits.filter(a => a.category === 'Review List').length;
   const otherFailCount = audits.filter(a => a.category === 'Other Fail').length;
@@ -84,6 +83,12 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
     l3: l3Count,
     appeals: appealCount,
     requests: requestCount,
+  };
+
+  const liveEntityCounts = {
+    storesCount: stores.length,
+    franchiseesCount: franchisees.length,
+    productsCount: products.length,
   };
 
   const [openMenus, setOpenMenus] = useState({
@@ -113,18 +118,17 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
       <div className="sidebar-brand">
         <div
           style={{
-            width: 42,
-            height: 42,
-            borderRadius: 12,
+            width: 38,
+            height: 38,
+            borderRadius: 10,
             background: '#ffffff',
-            border: '2px solid rgba(52, 211, 153, 0.4)',
+            border: '1.5px solid rgba(16, 185, 129, 0.35)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             overflow: 'hidden',
             flexShrink: 0,
             cursor: collapsed ? 'pointer' : 'default',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
             padding: 3
           }}
           onClick={collapsed ? onToggleCollapse : undefined}
@@ -136,30 +140,30 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
             style={{ width: '100%', height: '100%', objectFit: 'contain' }}
             onError={(e) => {
               e.target.style.display = 'none';
-              e.target.parentElement.innerHTML = '<span style="font-weight:800;font-size:13px;color:#059669">HFA</span>';
+              e.target.parentElement.innerHTML = '<span style="font-weight:800;font-size:12px;color:#059669">HFA</span>';
             }}
           />
         </div>
         {!collapsed && (
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#ffffff', lineHeight: 1.2, margin: 0, letterSpacing: '-0.01em' }}>
-                HFA KFC UK
+              <h2 style={{ fontSize: '14.5px', fontWeight: 800, color: '#ffffff', lineHeight: 1.2, margin: 0, letterSpacing: '-0.01em' }}>
+                HFA × KFC UK
               </h2>
               <span style={{
                 fontSize: '9px',
                 fontWeight: 800,
-                padding: '2px 5px',
+                padding: '1.5px 5px',
                 borderRadius: 4,
-                background: '#e4002b',
+                background: 'rgba(228, 0, 43, 0.9)',
                 color: '#fff',
                 letterSpacing: '0.04em'
               }}>
-                PORTAL
+                ADMIN
               </span>
             </div>
-            <span style={{ fontSize: '11px', color: '#34d399', fontWeight: 600, display: 'block', marginTop: 2 }}>
-              Halal Certification & Audit
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, display: 'block', marginTop: 1 }}>
+              Compliance Console
             </span>
           </div>
         )}
@@ -183,6 +187,7 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
             {sec.items.map(item => {
               const Icon = item.icon;
               const badgeCount = item.badgeKey ? (badgeCounts[item.badgeKey] || 0) : 0;
+              const entityCount = item.countKey ? liveEntityCounts[item.countKey] : null;
 
               if (!item.children) {
                 return (
@@ -195,17 +200,20 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
                       `nav-item-v2 ${isActive ? 'active' : ''} ${collapsed ? 'nav-item-collapsed' : ''}`
                     }
                   >
-                    <Icon size={18} className="nav-icon" />
+                    <Icon size={17} className="nav-icon" />
                     {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
+                    {!collapsed && entityCount !== null && (
+                      <span className="nav-count-pill">{entityCount}</span>
+                    )}
                     {!collapsed && badgeCount > 0 && (
                       <span style={{
-                        minWidth: 20,
-                        height: 20,
+                        minWidth: 19,
+                        height: 19,
                         padding: '0 6px',
                         borderRadius: 999,
-                        background: item.badgeKey === 'appeals' ? '#ef4444' : '#3b82f6',
-                        color: '#ffffff',
-                        fontSize: 11,
+                        background: item.badgeKey === 'appeals' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                        color: item.badgeKey === 'appeals' ? '#fca5a5' : '#93c5fd',
+                        fontSize: 10.5,
                         fontWeight: 700,
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -232,7 +240,7 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
                     title={`${item.label}${badgeCount > 0 ? ` (${badgeCount})` : ''}`}
                     className={`nav-item-v2 nav-parent nav-item-collapsed ${groupActive ? 'group-active' : ''}`}
                   >
-                    <Icon size={18} className="nav-icon" />
+                    <Icon size={17} className="nav-icon" />
                   </button>
                 );
               }
@@ -243,16 +251,15 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
                     onClick={() => toggleMenu(item.id)}
                     className={`nav-item-v2 nav-parent ${groupActive ? 'group-active' : ''}`}
                   >
-                    <Icon size={18} className="nav-icon" />
+                    <Icon size={17} className="nav-icon" />
                     <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
                     {badgeCount > 0 && (
                       <span style={{
-                        minWidth: 20,
-                        height: 20,
+                        minWidth: 19,
+                        height: 19,
                         padding: '0 6px',
                         borderRadius: 999,
-                        background: 'rgba(59, 130, 246, 0.25)',
-                        border: '1px solid rgba(96, 165, 250, 0.4)',
+                        background: 'rgba(59, 130, 246, 0.18)',
                         color: '#93c5fd',
                         fontSize: 10.5,
                         fontWeight: 700,
@@ -265,7 +272,7 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
                       </span>
                     )}
                     <span className="nav-chevron">
-                      {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                      {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </span>
                   </button>
 
@@ -273,6 +280,7 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
                     {item.children.map(child => {
                       const ChildIcon = child.icon;
                       const subCount = child.subBadgeKey ? (badgeCounts[child.subBadgeKey] || 0) : 0;
+                      const childEntityCount = child.countKey ? liveEntityCounts[child.countKey] : null;
                       return (
                         <NavLink
                           key={child.path}
@@ -285,13 +293,16 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
                         >
                           <ChildIcon size={14} className="nav-sub-icon" />
                           <span style={{ flex: 1 }}>{child.label}</span>
+                          {childEntityCount !== null && (
+                            <span className="nav-count-pill">{childEntityCount}</span>
+                          )}
                           {subCount > 0 && (
                             <span style={{
                               fontSize: 10,
                               fontWeight: 700,
                               padding: '1px 6px',
                               borderRadius: 999,
-                              background: child.subBadgeKey === 'l3' ? 'rgba(239, 68, 68, 0.22)' : 'rgba(59, 130, 246, 0.22)',
+                              background: child.subBadgeKey === 'l3' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.18)',
                               color: child.subBadgeKey === 'l3' ? '#fca5a5' : '#93c5fd',
                             }}>
                               {subCount}
@@ -308,44 +319,69 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
         ))}
       </nav>
 
-      {/* Footer User Profile Dock */}
+      {/* Footer Connection Status & User Dock */}
       <div className="sidebar-footer">
+        {!collapsed && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '7px',
+            padding: '5px 10px',
+            marginBottom: '8px',
+            fontSize: '11px',
+            fontWeight: 600,
+            color: dbConnected ? '#34d399' : '#94a3b8'
+          }}>
+            <span style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: dbConnected ? '#10b981' : '#f59e0b',
+              boxShadow: dbConnected ? '0 0 8px rgba(16, 185, 129, 0.65)' : 'none',
+              flexShrink: 0
+            }} />
+            <span>{dbConnected ? 'Atlas Sync Live' : 'Local Sync Active'}</span>
+          </div>
+        )}
+
         {!collapsed && currentUser && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            padding: '10px 12px',
-            marginBottom: '10px',
-            borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            padding: '9px 10px',
+            marginBottom: '8px',
+            borderRadius: '10px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.07)',
           }}>
             <div style={{
-              width: 34,
-              height: 34,
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #059669, #047857)',
-              color: '#fff',
+              width: 32,
+              height: 32,
+              borderRadius: '8px',
+              background: 'rgba(16, 185, 129, 0.16)',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              color: '#34d399',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 800,
-              fontSize: '13px',
+              fontSize: '12.5px',
               flexShrink: 0
             }}>
               {(currentUser.fullName || currentUser.username || 'T').charAt(0).toUpperCase()}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '12.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {currentUser.fullName || currentUser.username}
               </div>
-              <div style={{ color: '#34d399', fontSize: '11px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {currentUser.role || 'Operations Manager'}
               </div>
             </div>
           </div>
         )}
+
         <button
           onClick={handleLogout}
           title={collapsed ? 'Sign Out' : undefined}
@@ -353,29 +389,31 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
             width: '100%',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'center',
+            justifyContent: 'center',
             gap: '8px',
-            padding: '9px 12px',
-            borderRadius: '10px',
-            background: 'rgba(239, 68, 68, 0.14)',
-            border: '1px solid rgba(239, 68, 68, 0.28)',
-            color: '#fca5a5',
-            fontSize: '12.5px',
+            padding: '8px 12px',
+            borderRadius: '9px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            color: '#94a3b8',
+            fontSize: '12px',
             fontWeight: 600,
             cursor: 'pointer',
             transition: 'all 0.2s'
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = '#ef4444';
-            e.currentTarget.style.color = '#ffffff';
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.14)';
+            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.16)';
+            e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
             e.currentTarget.style.color = '#fca5a5';
           }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+            e.currentTarget.style.color = '#94a3b8';
+          }}
         >
-          <LogOut size={16} />
-          {!collapsed && <span>Sign Out of Portal</span>}
+          <LogOut size={15} />
+          {!collapsed && <span>Sign Out</span>}
         </button>
       </div>
     </aside>

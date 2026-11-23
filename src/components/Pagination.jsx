@@ -6,26 +6,30 @@ export default function Pagination({
   page,
   totalItems,
   total,
-  pageSize = 10,
-  pageSizeOptions = [10, 25, 50, 100],
+  pageSize,
+  rowsPerPage,
+  pageSizeOptions = [10, 15, 25, 50, 100],
   onPageChange,
   onPageSizeChange,
+  onRowsPerPageChange,
   itemName = 'items',
   disabled = false
 }) {
   const activePage = page !== undefined ? page : (currentPage !== undefined ? currentPage : 1);
   const activeTotal = total !== undefined ? total : (totalItems !== undefined ? totalItems : 0);
-  const totalPages = Math.max(1, Math.ceil(activeTotal / pageSize));
+  const activeSize = pageSize !== undefined ? pageSize : (rowsPerPage !== undefined ? rowsPerPage : 15);
+  const handleSizeChange = onPageSizeChange || onRowsPerPageChange;
+
+  const totalPages = Math.max(1, Math.ceil(activeTotal / activeSize));
   const validPage = Math.max(1, Math.min(activePage, totalPages));
 
   if (activeTotal <= 0 && totalPages <= 1) {
     return null;
   }
 
-  const startItem = activeTotal === 0 ? 0 : (validPage - 1) * pageSize + 1;
-  const endItem = Math.min(validPage * pageSize, activeTotal);
+  const startItem = activeTotal === 0 ? 0 : (validPage - 1) * activeSize + 1;
+  const endItem = Math.min(validPage * activeSize, activeTotal);
 
-  // Generate page numbers with smart window & ellipsis
   const getPageNumbers = () => {
     const delta = 2;
     const range = [];
@@ -59,8 +63,8 @@ export default function Pagination({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '14px 20px',
-        borderTop: '1px solid #e2e8f0',
+        padding: '13px 18px',
+        borderTop: '1px solid #f1f5f9',
         background: '#ffffff',
         flexWrap: 'wrap',
         gap: 12,
@@ -68,32 +72,32 @@ export default function Pagination({
       }}
     >
       {/* Left: Summary and Per Page Selector */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: '#64748b' }}>
-        <span>
-          Showing <strong>{startItem}</strong> to <strong>{endItem}</strong> of{' '}
-          <strong>{activeTotal.toLocaleString()}</strong> {itemName}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12.5, color: '#64748b' }}>
+        <span className="tabular-nums">
+          Showing <strong style={{ color: '#0f172a' }}>{startItem}</strong> to <strong style={{ color: '#0f172a' }}>{endItem}</strong> of{' '}
+          <strong style={{ color: '#0f172a' }}>{activeTotal.toLocaleString()}</strong> {itemName}
         </span>
 
-        {onPageSizeChange && (
+        {handleSizeChange && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span>Per page:</span>
             <select
-              value={pageSize}
+              value={activeSize}
               onChange={(e) => {
                 const newSize = Number(e.target.value);
-                onPageSizeChange(newSize);
+                handleSizeChange(newSize);
                 if (onPageChange) onPageChange(1);
               }}
               disabled={disabled}
               style={{
                 padding: '4px 8px',
-                borderRadius: 6,
-                border: '1px solid #cbd5e1',
+                borderRadius: 7,
+                border: '1px solid #e2e8f0',
                 fontSize: 12.5,
-                background: '#ffffff',
-                color: '#334155',
+                background: '#f8fafc',
+                color: '#0f172a',
                 cursor: disabled ? 'not-allowed' : 'pointer',
-                fontWeight: 500
+                fontWeight: 600
               }}
             >
               {pageSizeOptions.map((opt) => (
@@ -108,7 +112,6 @@ export default function Pagination({
 
       {/* Right: Navigation Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {/* First page button */}
         <button
           type="button"
           onClick={() => onPageChange && onPageChange(1)}
@@ -121,7 +124,7 @@ export default function Pagination({
             alignItems: 'center',
             justifyContent: 'center',
             border: '1px solid #e2e8f0',
-            borderRadius: 6,
+            borderRadius: 7,
             background: '#ffffff',
             color: '#475569',
             cursor: validPage <= 1 || disabled ? 'not-allowed' : 'pointer',
@@ -129,10 +132,9 @@ export default function Pagination({
             transition: 'all 0.15s'
           }}
         >
-          <ChevronsLeft size={15} />
+          <ChevronsLeft size={14} />
         </button>
 
-        {/* Prev button */}
         <button
           type="button"
           onClick={() => onPageChange && onPageChange(validPage - 1)}
@@ -145,7 +147,7 @@ export default function Pagination({
             alignItems: 'center',
             justifyContent: 'center',
             border: '1px solid #e2e8f0',
-            borderRadius: 6,
+            borderRadius: 7,
             background: '#ffffff',
             color: '#475569',
             cursor: validPage <= 1 || disabled ? 'not-allowed' : 'pointer',
@@ -153,10 +155,9 @@ export default function Pagination({
             transition: 'all 0.15s'
           }}
         >
-          <ChevronLeft size={15} />
+          <ChevronLeft size={14} />
         </button>
 
-        {/* Numbered Pills */}
         {getPageNumbers().map((p, idx) =>
           p === '...' ? (
             <span key={`dots-${idx}`} style={{ padding: '0 6px', color: '#94a3b8', fontSize: 13, userSelect: 'none' }}>
@@ -168,13 +169,14 @@ export default function Pagination({
               type="button"
               onClick={() => onPageChange && onPageChange(p)}
               disabled={disabled}
+              className="tabular-nums"
               style={{
-                minWidth: 32,
+                minWidth: 30,
                 height: 30,
                 padding: '0 8px',
-                borderRadius: 6,
-                border: validPage === p ? '1px solid #008744' : '1px solid #e2e8f0',
-                background: validPage === p ? '#008744' : '#ffffff',
+                borderRadius: 7,
+                border: validPage === p ? '1px solid #059669' : '1px solid #e2e8f0',
+                background: validPage === p ? '#059669' : '#ffffff',
                 color: validPage === p ? '#ffffff' : '#334155',
                 fontSize: 12.5,
                 fontWeight: validPage === p ? 700 : 500,
@@ -187,7 +189,6 @@ export default function Pagination({
           )
         )}
 
-        {/* Next button */}
         <button
           type="button"
           onClick={() => onPageChange && onPageChange(validPage + 1)}
@@ -200,7 +201,7 @@ export default function Pagination({
             alignItems: 'center',
             justifyContent: 'center',
             border: '1px solid #e2e8f0',
-            borderRadius: 6,
+            borderRadius: 7,
             background: '#ffffff',
             color: '#475569',
             cursor: validPage >= totalPages || disabled ? 'not-allowed' : 'pointer',
@@ -208,10 +209,9 @@ export default function Pagination({
             transition: 'all 0.15s'
           }}
         >
-          <ChevronRight size={15} />
+          <ChevronRight size={14} />
         </button>
 
-        {/* Last page button */}
         <button
           type="button"
           onClick={() => onPageChange && onPageChange(totalPages)}
@@ -224,7 +224,7 @@ export default function Pagination({
             alignItems: 'center',
             justifyContent: 'center',
             border: '1px solid #e2e8f0',
-            borderRadius: 6,
+            borderRadius: 7,
             background: '#ffffff',
             color: '#475569',
             cursor: validPage >= totalPages || disabled ? 'not-allowed' : 'pointer',
@@ -232,7 +232,7 @@ export default function Pagination({
             transition: 'all 0.15s'
           }}
         >
-          <ChevronsRight size={15} />
+          <ChevronsRight size={14} />
         </button>
       </div>
     </div>

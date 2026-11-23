@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useKfc } from '../context/KfcContext';
 import {
   MapPin, Store, Navigation, Radio, ShieldCheck,
-  ExternalLink, Calendar, Search, Crosshair, ZoomIn, Award, ClipboardCheck
+  ExternalLink, Calendar, Search, Crosshair, ZoomIn, Award, ClipboardCheck, Layers
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -17,6 +17,24 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
+const TILE_PROVIDERS = {
+  osm: {
+    label: 'Street Map',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors • HFA Portal'
+  },
+  esriStreet: {
+    label: 'Detailed Roads',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri • HFA Portal'
+  },
+  satellite: {
+    label: 'Satellite',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri World Imagery • HFA Portal'
+  }
+};
+
 export default function MapPage() {
   const navigate = useNavigate();
   const { stores, gpsLogs, currentUser } = useKfc();
@@ -24,6 +42,7 @@ export default function MapPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [tileMode, setTileMode] = useState('osm');
   const [activeStore, setActiveStore] = useState(null);
   const [showAuditorLogs, setShowAuditorLogs] = useState(true);
   const [liveCheckIns, setLiveCheckIns] = useState([]);
@@ -31,6 +50,7 @@ export default function MapPage() {
 
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const storeMarkersRef = useRef([]);
   const auditorMarkersRef = useRef([]);
 
@@ -54,6 +74,7 @@ export default function MapPage() {
     return matchesSearch && matchesCity && matchesStatus;
   });
 
+  // Initialize Leaflet Map once
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -65,13 +86,13 @@ export default function MapPage() {
         attributionControl: true
       });
 
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors • HFA Halal Portal',
+      const cfg = TILE_PROVIDERS.osm;
+      tileLayerRef.current = L.tileLayer(cfg.url, {
+        attribution: cfg.attribution,
         maxZoom: 19
       }).addTo(map);
 
       L.control.zoom({ position: 'bottomright' }).addTo(map);
-
       mapInstanceRef.current = map;
     }
 
@@ -79,10 +100,29 @@ export default function MapPage() {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
+        tileLayerRef.current = null;
       }
     };
   }, []);
 
+  // Safely swap tile layer when tileMode changes without rebuilding map
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+      tileLayerRef.current = null;
+    }
+
+    const cfg = TILE_PROVIDERS[tileMode] || TILE_PROVIDERS.osm;
+    tileLayerRef.current = L.tileLayer(cfg.url, {
+      attribution: cfg.attribution,
+      maxZoom: 19
+    }).addTo(map);
+  }, [tileMode]);
+
+  // Sync Store Markers onto Map
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -165,7 +205,7 @@ export default function MapPage() {
     }
   }, [filteredStores, activeStore]);
 
-  // Sync Auditor GPS Pings (historical + live check-ins)
+  // Sync Auditor GPS Pings
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -192,7 +232,7 @@ export default function MapPage() {
           align-items: center;
           justify-content: center;
           border: 2px solid #ffffff;
-          box-shadow: 0 0 10px rgba(37, 99, 235, 0.6);
+          box-shadow: 0 0 10px rgba(37, 99, 235, 0.55);
           cursor: pointer;
         ">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
@@ -236,17 +276,16 @@ export default function MapPage() {
   const handleSelectStore = (st) => {
     setActiveStore(st);
     if (mapInstanceRef.current && st.lat && st.lng) {
-      mapInstanceRef.current.flyTo([st.lat, st.lng], 15, { duration: 1.1 });
+      mapInstanceRef.current.flyTo([st.lat, st.lng], 15, { duration: 1.0 });
     }
   };
 
   const handleResetView = () => {
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([53.5, -2.2], 6, { duration: 1.0 });
+      mapInstanceRef.current.flyTo([53.5, -2.2], 6, { duration: 0.9 });
     }
   };
 
-  // Live Device GPS Check-In via HTML5 Geolocation API
   const handleDeviceGpsCheckIn = () => {
     if (!navigator.geolocation) {
       toast.error('Geolocation is not supported by this browser');
@@ -269,12 +308,11 @@ export default function MapPage() {
         setLiveCheckIns(prev => [ping, ...prev]);
         setShowAuditorLogs(true);
         if (mapInstanceRef.current) {
-          mapInstanceRef.current.flyTo([latitude, longitude], 14, { duration: 1.2 });
+          mapInstanceRef.current.flyTo([latitude, longitude], 14, { duration: 1.1 });
         }
         toast.success(`Live GPS Check-In logged (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, { id: 'gps-toast' });
       },
       () => {
-        // Fallback: check in at the currently active store's exact UK coordinates
         const target = activeStore || stores[0];
         if (target) {
           const ping = {
@@ -290,7 +328,7 @@ export default function MapPage() {
           setLiveCheckIns(prev => [ping, ...prev]);
           setShowAuditorLogs(true);
           if (mapInstanceRef.current) {
-            mapInstanceRef.current.flyTo([target.lat, target.lng], 15, { duration: 1.1 });
+            mapInstanceRef.current.flyTo([target.lat, target.lng], 15, { duration: 1.0 });
           }
           toast.success(`Checked in at ${target.name} (${target.postcode})`, { id: 'gps-toast' });
         }
@@ -300,32 +338,56 @@ export default function MapPage() {
   };
 
   return (
-    <div>
-      {/* Top Controls Card */}
-      <div className="card" style={{ marginBottom: '1.25rem', padding: '1.1rem 1.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-            <Radio size={20} color="#059669" />
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--slate-900)' }}>
-                UK KFC Halal Store Geographic Coverage & GPS Tracking
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--slate-500)' }}>
-                {filteredStores.length} of {stores.length} stores mapped to real ONS UK Postcode coordinates
-              </div>
-            </div>
+    <div className="page-shell">
+      {/* Executive Header */}
+      <div className="dash-header">
+        <div>
+          <h1 className="dash-title">UK Geographic Coverage &amp; GPS Telemetry</h1>
+          <div className="dash-subtitle">
+            <span>{filteredStores.length} of {stores.length} stores mapped via UK ONS Postcode coordinates</span>
           </div>
+        </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--slate-400)' }} />
+        <div className="dash-controls">
+          <button
+            type="button"
+            onClick={handleDeviceGpsCheckIn}
+            className="btn btn-primary btn-sm"
+            style={{ height: 36 }}
+          >
+            <Navigation size={14} />
+            <span>Check In My GPS</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowAuditorLogs(!showAuditorLogs)}
+            className={`btn btn-sm ${showAuditorLogs ? 'btn-outline' : 'btn-ghost'}`}
+            style={{ height: 36, borderColor: showAuditorLogs ? '#bfdbfe' : undefined, background: showAuditorLogs ? '#eff6ff' : undefined, color: showAuditorLogs ? '#1d4ed8' : undefined }}
+          >
+            <Radio size={14} />
+            <span>Auditor Pings ({showAuditorLogs ? 'ON' : 'OFF'})</span>
+          </button>
+
+          <button type="button" onClick={handleResetView} className="btn btn-outline btn-sm" style={{ height: 36 }}>
+            <Crosshair size={14} />
+            <span>UK Overview</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Filter & Map Layer Toolbar */}
+      <div className="dash-card" style={{ padding: '14px 18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: '1 1 420px' }}>
+            <div className="search-input-wrapper" style={{ flex: '1 1 220px', maxWidth: 320 }}>
+              <Search className="search-icon" size={15} />
               <input
                 type="text"
                 placeholder="Search store, postcode, franchisee..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="filter-select"
-                style={{ paddingLeft: '2rem', width: 220 }}
+                className="search-input"
               />
             </div>
 
@@ -334,7 +396,7 @@ export default function MapPage() {
               value={selectedCity}
               onChange={e => setSelectedCity(e.target.value)}
             >
-              <option value="ALL">All UK Cities & Regions</option>
+              <option value="ALL">All UK Cities &amp; Regions</option>
               {cities.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -350,224 +412,210 @@ export default function MapPage() {
               <option value="Due for Audit">Due for Audit</option>
               <option value="Under Review">Under Review</option>
             </select>
+          </div>
 
-            <button
-              onClick={handleDeviceGpsCheckIn}
-              className="btn btn-primary btn-sm"
-              title="Log a live GPS check-in using your device location"
-            >
-              <Navigation size={14} />
-              <span>Check In My GPS</span>
-            </button>
-
-            <button
-              onClick={() => setShowAuditorLogs(!showAuditorLogs)}
-              className={`btn btn-sm ${showAuditorLogs ? 'btn-outline' : 'btn-ghost'}`}
-              title="Toggle Auditor GPS tracking markers"
-            >
-              <Radio size={14} color={showAuditorLogs ? '#2563eb' : '#64748b'} />
-              <span>Auditor Pings ({showAuditorLogs ? 'ON' : 'OFF'})</span>
-            </button>
-
-            <button onClick={handleResetView} className="btn btn-outline btn-sm" title="Reset map to national view">
-              <Crosshair size={14} />
-              <span>UK Overview</span>
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Layers size={14} color="#64748b" />
+            <div className="segmented-tabs">
+              {Object.entries(TILE_PROVIDERS).map(([key, cfg]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTileMode(key)}
+                  className={`segmented-tab ${tileMode === key ? 'active' : ''}`}
+                  style={{ padding: '5px 10px', fontSize: '12px' }}
+                >
+                  {cfg.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Map Viewport & Drawer Layout */}
-      <div className="map-layout-grid">
-        {/* Leaflet Interactive Map Container */}
-        <div className="card" style={{ marginBottom: 0, padding: '0.6rem', display: 'flex', flexDirection: 'column' }}>
+      {/* Main Map Viewport & Store Inspector */}
+      <div className="map-layout-grid" style={{ marginBottom: 0 }}>
+        {/* Left: Leaflet Interactive Map */}
+        <div className="page-surface" style={{ padding: '12px', display: 'flex', flexDirection: 'column' }}>
           <div
             ref={mapContainerRef}
             style={{
               height: '560px',
               width: '100%',
-              borderRadius: 'var(--radius-md)',
+              borderRadius: '10px',
               overflow: 'hidden',
-              border: '1px solid var(--slate-300)'
+              border: '1px solid #e2e8f0'
             }}
           />
 
-          {/* Map Legend */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: '0.75rem',
-            marginTop: '0.75rem',
-            padding: '0.35rem 0.5rem',
-            fontSize: '0.8rem',
-            color: 'var(--slate-600)',
-            borderTop: '1px solid var(--slate-200)'
+            gap: '12px',
+            marginTop: '10px',
+            padding: '4px 6px 0',
+            fontSize: '12px',
+            color: '#475569'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#059669', display: 'inline-block' }} />
-                <span>Certified Halal Branch ({stores.filter(s => s.status === 'Passed').length})</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#059669', display: 'inline-block' }} />
+                <span>Certified Halal ({stores.filter(s => s.status === 'Passed' || s.halalCertified).length})</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#e4002b', display: 'inline-block' }} />
-                <span>Inspection Due / NC ({stores.filter(s => s.status !== 'Passed').length})</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#e4002b', display: 'inline-block' }} />
+                <span>Inspection Due / NC ({stores.filter(s => s.status !== 'Passed' && !s.halalCertified).length})</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span style={{ width: 11, height: 11, borderRadius: '50%', background: '#2563eb', display: 'inline-block' }} />
-                <span>Field Auditor GPS Check-Ins</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#2563eb', display: 'inline-block' }} />
+                <span>Auditor GPS Check-Ins</span>
               </div>
             </div>
-            <span style={{ fontSize: '0.74rem', color: 'var(--slate-400)' }}>UK ONS Postcode Geocoding + OpenStreetMap</span>
+            <span style={{ fontSize: '11.5px', color: '#94a3b8' }}>UK ONS Postcode Geocoding</span>
           </div>
         </div>
 
-        {/* Selected Store Inspector & Quick List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {activeStore ? (
-            <div className="card" style={{ marginBottom: 0, borderTop: `4px solid ${activeStore.status === 'Passed' ? '#059669' : '#e4002b'}` }}>
-              <div className="card-header">
+        {/* Right: Active Store Profile & Quick Branch Switcher */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {activeStore && (
+            <div className="dash-card" style={{ gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--slate-500)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    STORE PROFILE & GPS TELEMETRY
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Store Telemetry Profile
                   </div>
-                  <h3 className="card-title" style={{ fontSize: '1.15rem', marginTop: '0.2rem' }}>
+                  <h3 style={{ fontSize: '16.5px', fontWeight: 800, color: '#0f172a', marginTop: 2 }}>
                     {activeStore.name}
                   </h3>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--slate-500)' }}>
-                    Branch Code: <strong style={{ color: 'var(--slate-800)' }}>{activeStore.branchCode}</strong>
+                  <div style={{ marginTop: 4 }}>
+                    <span className="code-chip">{activeStore.branchCode}</span>
                   </div>
                 </div>
 
-                {activeStore.status === 'Passed' ? (
+                {activeStore.status === 'Passed' || activeStore.halalCertified ? (
                   <span className="badge badge-pass"><span className="badge-dot" /> Certified</span>
                 ) : (
                   <span className="badge badge-fail"><span className="badge-dot" /> Due for Audit</span>
                 )}
               </div>
 
-              <div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem', fontSize: '0.85rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
-                    <MapPin size={16} color="#059669" style={{ marginTop: 2, flexShrink: 0 }} />
-                    <div>
-                      <div style={{ fontWeight: 600, color: 'var(--slate-800)' }}>{activeStore.address}</div>
-                      <div style={{ color: 'var(--slate-500)', fontSize: '0.8rem', fontWeight: 700 }}>{activeStore.postcode}</div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <Store size={16} color="var(--slate-400)" style={{ flexShrink: 0 }} />
-                    <div>
-                      <span style={{ color: 'var(--slate-500)' }}>Franchise Partner: </span>
-                      <strong style={{ color: 'var(--slate-800)' }}>{activeStore.franchisee}</strong>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <Calendar size={16} color="var(--slate-400)" style={{ flexShrink: 0 }} />
-                    <div>
-                      <span style={{ color: 'var(--slate-500)' }}>Last On-Site Audit: </span>
-                      <strong>{activeStore.lastAuditDate || '12 Jan 2026'}</strong>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <ShieldCheck size={16} color="#059669" style={{ flexShrink: 0 }} />
-                    <div>
-                      <span style={{ color: 'var(--slate-500)' }}>Certificate No: </span>
-                      <code style={{ fontSize: '0.78rem', background: 'var(--slate-100)', padding: '2px 6px', borderRadius: 4 }}>
-                        {activeStore.certificateNumber || `HFA-KFC-${activeStore.branchCode}-2026`}
-                      </code>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <Crosshair size={16} color="#2563eb" style={{ flexShrink: 0 }} />
-                    <div style={{ fontSize: '0.8rem', color: 'var(--slate-600)' }}>
-                      GPS Coordinates: <strong>{activeStore.lat?.toFixed(5)}, {activeStore.lng?.toFixed(5)}</strong>
-                    </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', fontSize: '12.5px', paddingTop: 10, borderTop: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <MapPin size={15} color="#059669" style={{ marginTop: 2, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{activeStore.address}</div>
+                    <div style={{ color: '#64748b', fontWeight: 600 }}>{activeStore.postcode}</div>
                   </div>
                 </div>
 
-                <div style={{ marginTop: '1.15rem', paddingTop: '1rem', borderTop: '1px solid var(--slate-200)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => handleSelectStore(activeStore)}
-                    className="btn btn-primary btn-sm"
-                  >
-                    <ZoomIn size={14} />
-                    <span>Zoom Branch</span>
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Store size={15} color="#64748b" style={{ flexShrink: 0 }} />
+                  <span>Franchise Partner: <strong style={{ color: '#0f172a' }}>{activeStore.franchisee}</strong></span>
+                </div>
 
-                  <button
-                    onClick={() => setAuditStoreId(activeStore.id)}
-                    className="btn btn-outline btn-sm"
-                  >
-                    <ClipboardCheck size={14} color="#e4002b" />
-                    <span>Audit</span>
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Calendar size={15} color="#64748b" style={{ flexShrink: 0 }} />
+                  <span>Last On-Site Audit: <strong className="tabular-nums">{activeStore.lastAuditDate || 'N/A'}</strong></span>
+                </div>
 
-                  <button
-                    onClick={() => navigate(`/certificates?storeId=${encodeURIComponent(activeStore.id)}`)}
-                    className="btn btn-outline btn-sm"
-                  >
-                    <Award size={14} color="#059669" />
-                    <span>Certificate</span>
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={15} color="#059669" style={{ flexShrink: 0 }} />
+                  <span>Cert: <code className="code-chip" style={{ padding: '1px 6px' }}>{activeStore.certificateNumber || `HFA-KFC-${activeStore.branchCode}-2026`}</code></span>
+                </div>
 
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`KFC ${activeStore.name} ${activeStore.postcode}`)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn btn-outline btn-sm"
-                  >
-                    <ExternalLink size={14} />
-                    <span>Google Maps</span>
-                  </a>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Crosshair size={15} color="#2563eb" style={{ flexShrink: 0 }} />
+                  <span className="tabular-nums" style={{ color: '#475569' }}>
+                    GPS: <strong>{activeStore.lat?.toFixed(5)}, {activeStore.lng?.toFixed(5)}</strong>
+                  </span>
                 </div>
               </div>
-            </div>
-          ) : null}
 
-          {/* Search Results / Nearby Store Browser */}
-          <div className="card" style={{ marginBottom: 0, flex: 1, display: 'flex', flexDirection: 'column', maxHeight: '280px', padding: '1rem' }}>
-            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--slate-700)', marginBottom: '0.5rem' }}>
+              <div style={{ paddingTop: 12, borderTop: '1px solid #f1f5f9', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => handleSelectStore(activeStore)}
+                  className="btn btn-primary btn-sm"
+                >
+                  <ZoomIn size={13} />
+                  <span>Zoom Branch</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAuditStoreId(activeStore.id)}
+                  className="btn btn-outline btn-sm"
+                >
+                  <ClipboardCheck size={13} color="#e4002b" />
+                  <span>Audit</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate(`/certificates?storeId=${encodeURIComponent(activeStore.id)}`)}
+                  className="btn btn-outline btn-sm"
+                >
+                  <Award size={13} color="#059669" />
+                  <span>Certificate</span>
+                </button>
+
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`KFC ${activeStore.name} ${activeStore.postcode}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-outline btn-sm"
+                >
+                  <ExternalLink size={13} />
+                  <span>Google Maps</span>
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Matching Branches List */}
+          <div className="page-surface" style={{ display: 'flex', flexDirection: 'column', maxHeight: '300px' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>
               Matching UK Branches ({filteredStores.length})
             </div>
-            <div style={{ overflowY: 'auto', flex: 1 }}>
-              {filteredStores.slice(0, 40).map(st => (
-                <div
-                  key={st.id}
-                  onClick={() => handleSelectStore(st)}
-                  style={{
-                    padding: '0.6rem 0.75rem',
-                    borderRadius: 'var(--radius-sm)',
-                    marginBottom: '0.25rem',
-                    cursor: 'pointer',
-                    background: activeStore && String(activeStore.id) === String(st.id) ? '#ecfdf5' : 'transparent',
-                    borderLeft: activeStore && String(activeStore.id) === String(st.id) ? '3px solid #059669' : '3px solid transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--slate-900)' }}>
-                      {st.name}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '6px' }}>
+              {filteredStores.slice(0, 40).map((st, idx) => {
+                const isAct = activeStore && String(activeStore.id) === String(st.id);
+                return (
+                  <div
+                    key={`map-st-${st.id}-${idx}`}
+                    onClick={() => handleSelectStore(st)}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      marginBottom: '2px',
+                      cursor: 'pointer',
+                      background: isAct ? '#ecfdf5' : 'transparent',
+                      borderLeft: isAct ? '3px solid #059669' : '3px solid transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: '12.5px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {st.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        {st.branchCode} • {st.postcode} • {st.franchisee}
+                      </div>
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--slate-500)' }}>
-                      {st.branchCode} • {st.postcode} • {st.franchisee}
-                    </div>
+                    {st.status === 'Passed' || st.halalCertified ? (
+                      <span className="badge badge-pass" style={{ fontSize: '10.5px', padding: '2px 7px' }}>Pass</span>
+                    ) : (
+                      <span className="badge badge-warn" style={{ fontSize: '10.5px', padding: '2px 7px' }}>Due</span>
+                    )}
                   </div>
-                  {st.status === 'Passed' ? (
-                    <span className="badge badge-pass" style={{ fontSize: '0.7rem', padding: '0.15rem 0.45rem' }}>Pass</span>
-                  ) : (
-                    <span className="badge badge-warn" style={{ fontSize: '0.7rem', padding: '0.15rem 0.45rem' }}>Due</span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

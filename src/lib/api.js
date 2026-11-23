@@ -1,4 +1,13 @@
-const API_BASE = '/api';
+const DEFAULT_BACKEND_URL = 'https://hfakfc-backend.onrender.com';
+
+function resolveApiBase() {
+  const configured = (import.meta.env.VITE_API_URL || '').trim();
+  if (configured === '/api') return '/api';
+  const base = (configured || DEFAULT_BACKEND_URL).replace(/\/+$/, '');
+  return base.endsWith('/api') ? base : `${base}/api`;
+}
+
+export const API_BASE = resolveApiBase();
 
 async function fetchJson(endpoint, options = {}) {
   try {

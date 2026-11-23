@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useKfc } from '../context/KfcContext';
-import { Inbox, Store, Building2, Package, Search, CheckCircle2, XCircle, Plus, Clock } from 'lucide-react';
+import {
+  Inbox, Store, Building2, Package, Search,
+  CheckCircle2, XCircle, Plus, Clock, X
+} from 'lucide-react';
 import Pagination from '../components/Pagination';
 import ActionMenu from '../components/ActionMenu';
 
@@ -9,6 +12,7 @@ export default function RequestsPage() {
 
   const [activeTab, setActiveTab] = useState('stores');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,7 +27,6 @@ export default function RequestsPage() {
     openingDate: new Date().toISOString().split('T')[0]
   });
 
-  // Categorize requests by tab
   const storeRequests = requests.filter(r => !r.categoryTab || r.categoryTab === 'stores');
   const franchiseRequests = [
     ...requests.filter(r => r.categoryTab === 'franchise'),
@@ -78,13 +81,23 @@ export default function RequestsPage() {
 
   const activeList = activeTab === 'stores' ? storeRequests : activeTab === 'franchise' ? franchiseRequests : productRequests;
 
+  const pendingCount = activeList.filter(r => r.status === 'Pending' || r.status?.toLowerCase().includes('pending')).length;
+  const approvedCount = activeList.filter(r => r.status === 'Accepted' || r.status === 'Approved').length;
+  const approvalPct = activeList.length > 0 ? Math.round((approvedCount / activeList.length) * 100) : 0;
+
   const filtered = activeList.filter(r => {
     const q = searchTerm.toLowerCase();
-    return !q ||
+    const matchesSearch =
+      !q ||
       r.storeName?.toLowerCase().includes(q) ||
       r.branchCode?.toLowerCase().includes(q) ||
       r.franchisee?.toLowerCase().includes(q) ||
       r.requestType?.toLowerCase().includes(q);
+
+    const normalizedStatus = (r.status === 'Accepted' || r.status === 'Approved') ? 'Approved' : (r.status === 'Pending' || r.status?.toLowerCase().includes('pending')) ? 'Pending' : r.status;
+    const matchesStatus = statusFilter === 'ALL' || normalizedStatus === statusFilter;
+
+    return matchesSearch && matchesStatus;
   });
 
   const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -93,61 +106,156 @@ export default function RequestsPage() {
     e.preventDefault();
     addRequest(form);
     setActiveTab(form.categoryTab);
+    setCurrentPage(1);
     setIsModalOpen(false);
   };
 
   return (
-    <div>
-      {/* Tabs */}
-      <div className="tabs-container">
-        <button
-          onClick={() => { setActiveTab('stores'); setCurrentPage(1); }}
-          className={`tab-btn ${activeTab === 'stores' ? 'active' : ''}`}
-        >
-          <Store size={16} />
-          <span>Store Requests (Opening, Closure, Conversion) ({storeRequests.length})</span>
-        </button>
-
-        <button
-          onClick={() => { setActiveTab('franchise'); setCurrentPage(1); }}
-          className={`tab-btn ${activeTab === 'franchise' ? 'active' : ''}`}
-        >
-          <Building2 size={16} />
-          <span>Franchise Requests (Ownership, Contact) ({franchiseRequests.length})</span>
-        </button>
-
-        <button
-          onClick={() => { setActiveTab('products'); setCurrentPage(1); }}
-          className={`tab-btn ${activeTab === 'products' ? 'active' : ''}`}
-        >
-          <Package size={16} />
-          <span>Product Clearance & Change Inquiries ({productRequests.length})</span>
-        </button>
-      </div>
-
-      {/* Toolbar */}
-      <div className="card" style={{ marginBottom: '1.25rem', padding: '1.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-          <div className="search-input-wrapper" style={{ flex: '1 1 300px' }}>
-            <Search className="search-icon" size={16} />
-            <input
-              type="text"
-              className="search-input"
-              value={searchTerm}
-              onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              placeholder="Search request type, branch code, store or partner name..."
-            />
+    <div className="page-shell">
+      {/* Executive Header */}
+      <div className="dash-header">
+        <div>
+          <h1 className="dash-title">Store &amp; Franchise Requests</h1>
+          <div className="dash-subtitle">
+            <span>Manage branch Halal conversions, new store openings, franchise updates, and ingredient clearances</span>
           </div>
+        </div>
 
-          <button onClick={() => setIsModalOpen(true)} className="btn btn-primary">
-            <Plus size={16} />
+        <div className="dash-controls">
+          <button type="button" onClick={() => setIsModalOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
+            <Plus size={15} />
             <span>Submit New Request</span>
           </button>
         </div>
       </div>
 
-      {/* Requests Table */}
-      <div className="table-container">
+      {/* 3 Precision KPI Cards */}
+      <div className="dash-kpi-grid-3">
+        <div className="dash-kpi-card" onClick={() => { setStatusFilter('ALL'); setCurrentPage(1); }}>
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Total Requests (Active Tab)</span>
+            <div className="dash-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+              <Inbox size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value">{activeList.length}</div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: '100%', background: '#2563eb' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>Across {activeTab === 'stores' ? 'branch operations' : activeTab === 'franchise' ? 'franchise governance' : 'ingredient clearances'}</span>
+          </div>
+        </div>
+
+        <div className="dash-kpi-card" onClick={() => { setStatusFilter('Pending'); setCurrentPage(1); }}>
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Pending Review</span>
+            <div className="dash-kpi-icon" style={{ background: '#fffbeb', color: '#d97706' }}>
+              <Clock size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value" style={{ color: '#d97706' }}>{pendingCount}</div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: `${activeList.length ? Math.round((pendingCount / activeList.length) * 100) : 0}%`, background: '#f59e0b' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>Awaiting HFA operations decision</span>
+          </div>
+        </div>
+
+        <div className="dash-kpi-card" onClick={() => { setStatusFilter('Approved'); setCurrentPage(1); }}>
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Approved Requests</span>
+            <div className="dash-kpi-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+              <CheckCircle2 size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value-row">
+              <span className="dash-kpi-value" style={{ color: '#059669' }}>{approvedCount}</span>
+              <span className="dash-kpi-denom">({approvalPct}%)</span>
+            </div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: `${approvalPct}%`, background: '#059669' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>Cleared and authorized</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Category Segmented Tabs */}
+      <div>
+        <div className="segmented-tabs">
+          <button
+            type="button"
+            onClick={() => { setActiveTab('stores'); setCurrentPage(1); }}
+            className={`segmented-tab ${activeTab === 'stores' ? 'active' : ''}`}
+          >
+            <Store size={14} color="#059669" />
+            <span>Store Requests</span>
+            <span className="tabular-nums" style={{ fontSize: '11px', padding: '1px 6px', borderRadius: 6, background: activeTab === 'stores' ? '#f1f5f9' : 'rgba(15,23,42,0.06)' }}>
+              {storeRequests.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setActiveTab('franchise'); setCurrentPage(1); }}
+            className={`segmented-tab ${activeTab === 'franchise' ? 'active' : ''}`}
+          >
+            <Building2 size={14} color="#2563eb" />
+            <span>Franchise Requests</span>
+            <span className="tabular-nums" style={{ fontSize: '11px', padding: '1px 6px', borderRadius: 6, background: activeTab === 'franchise' ? '#f1f5f9' : 'rgba(15,23,42,0.06)' }}>
+              {franchiseRequests.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setActiveTab('products'); setCurrentPage(1); }}
+            className={`segmented-tab ${activeTab === 'products' ? 'active' : ''}`}
+          >
+            <Package size={14} color="#d97706" />
+            <span>Product Clearances</span>
+            <span className="tabular-nums" style={{ fontSize: '11px', padding: '1px 6px', borderRadius: 6, background: activeTab === 'products' ? '#f1f5f9' : 'rgba(15,23,42,0.06)' }}>
+              {productRequests.length}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Unified Requests Table Surface */}
+      <div className="page-surface">
+        <div className="surface-toolbar">
+          <div className="search-input-wrapper" style={{ flex: '1 1 280px', maxWidth: 420 }}>
+            <Search className="search-icon" size={15} />
+            <input
+              type="text"
+              className="search-input"
+              value={searchTerm}
+              onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              placeholder="Search request type, reference code, store or partner name..."
+            />
+          </div>
+
+          <select
+            className="filter-select"
+            value={statusFilter}
+            onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="Pending">Pending Review</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+        </div>
+
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table">
             <thead>
@@ -156,81 +264,80 @@ export default function RequestsPage() {
                 <th>Target Site / Item Name</th>
                 <th>Franchise / Partner</th>
                 <th>Request Type</th>
-                <th>Submission Date</th>
+                <th>Submitted</th>
                 <th>Target Date</th>
-                <th>Current Status</th>
+                <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {paginated.map((req) => (
-                <tr key={req.id}>
-                  <td>
-                    <span style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 700,
-                      fontSize: '0.8rem',
-                      background: 'var(--slate-100)',
-                      padding: '0.25rem 0.55rem',
-                      borderRadius: '6px'
-                    }}>
-                      {req.branchCode}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 700, color: 'var(--slate-900)' }}>{req.storeName}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--slate-500)' }}>{req.address}</div>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 600 }}>{req.franchisee}</div>
-                  </td>
-                  <td>
-                    <span className="badge badge-neutral" style={{ fontWeight: 700 }}>
-                      {req.requestType}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>{req.date}</div>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: '0.82rem' }}>{req.openingDate || '-'}</div>
-                  </td>
-                  <td>
-                    {req.status === 'Accepted' || req.status === 'Approved' ? (
-                      <span className="badge badge-pass"><span className="badge-dot" /> Approved</span>
-                    ) : req.status === 'Pending' ? (
-                      <span className="badge badge-warn"><span className="badge-dot" /> Pending Review</span>
-                    ) : (
-                      <span className="badge badge-fail"><span className="badge-dot" /> {req.status}</span>
-                    )}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <ActionMenu
-                      items={[
-                        {
-                          label: 'Approve Request',
-                          icon: CheckCircle2,
-                          color: '#059669',
-                          onClick: () => updateRequestStatus(req.id, 'Approved')
-                        },
-                        {
-                          label: 'Mark Pending Review',
-                          icon: Clock,
-                          color: '#d97706',
-                          onClick: () => updateRequestStatus(req.id, 'Pending')
-                        },
-                        { divider: true },
-                        {
-                          label: 'Reject Request',
-                          icon: XCircle,
-                          danger: true,
-                          onClick: () => updateRequestStatus(req.id, 'Rejected')
-                        }
-                      ]}
-                    />
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="empty-state">
+                    No requests match your current filters.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                paginated.map((req, idx) => (
+                  <tr key={`req-row-${req.id}-${idx}`}>
+                    <td>
+                      <span className="code-chip">{req.branchCode}</span>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{req.storeName}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748b' }}>{req.address}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: '#1e293b' }}>{req.franchisee}</div>
+                    </td>
+                    <td>
+                      <span className="badge badge-neutral" style={{ fontWeight: 600 }}>
+                        {req.requestType}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="tabular-nums" style={{ fontSize: '12.5px', fontWeight: 600 }}>{req.date}</div>
+                    </td>
+                    <td>
+                      <div className="tabular-nums" style={{ fontSize: '12.5px', color: '#475569' }}>{req.openingDate || '-'}</div>
+                    </td>
+                    <td>
+                      {req.status === 'Accepted' || req.status === 'Approved' ? (
+                        <span className="badge badge-pass"><span className="badge-dot" /> Approved</span>
+                      ) : req.status === 'Pending' || req.status?.toLowerCase().includes('pending') ? (
+                        <span className="badge badge-warn"><span className="badge-dot" /> Pending Review</span>
+                      ) : (
+                        <span className="badge badge-fail"><span className="badge-dot" /> {req.status}</span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <ActionMenu
+                        items={[
+                          {
+                            label: 'Approve Request',
+                            icon: CheckCircle2,
+                            color: '#059669',
+                            onClick: () => updateRequestStatus(req.id, 'Approved')
+                          },
+                          {
+                            label: 'Mark Pending Review',
+                            icon: Clock,
+                            color: '#d97706',
+                            onClick: () => updateRequestStatus(req.id, 'Pending')
+                          },
+                          { divider: true },
+                          {
+                            label: 'Reject Request',
+                            icon: XCircle,
+                            danger: true,
+                            onClick: () => updateRequestStatus(req.id, 'Rejected')
+                          }
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -238,9 +345,10 @@ export default function RequestsPage() {
         <Pagination
           totalItems={filtered.length}
           currentPage={currentPage}
-          rowsPerPage={pageSize}
+          pageSize={pageSize}
           onPageChange={setCurrentPage}
-          onRowsPerPageChange={setPageSize}
+          onPageSizeChange={setPageSize}
+          itemName="requests"
         />
       </div>
 
@@ -249,12 +357,12 @@ export default function RequestsPage() {
         <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Inbox size={20} color="#059669" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Inbox size={19} color="#059669" />
                 <h3 className="card-title">Submit Store, Franchise or Product Request</h3>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="btn btn-ghost btn-sm">
-                ×
+              <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-ghost btn-sm">
+                <X size={18} />
               </button>
             </div>
 

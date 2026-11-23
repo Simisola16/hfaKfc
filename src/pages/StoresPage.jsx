@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useKfc } from '../context/KfcContext';
 import {
   Store, Search, Plus, MapPin, User, Award, ClipboardCheck,
-  Edit, Trash2, CheckCircle2, Clock, AlertTriangle, Download, X
+  Edit, Trash2, CheckCircle2, Clock, AlertTriangle, Download, X, ChevronRight
 } from 'lucide-react';
 import NewStoreModal from '../components/NewStoreModal';
 import NewAuditModal from '../components/NewAuditModal';
@@ -34,7 +34,6 @@ export default function StoresPage() {
     }
   }, [searchParams]);
 
-  // Filter stores
   const filtered = stores.filter(s => {
     const q = searchTerm.toLowerCase();
     const matchesSearch =
@@ -53,9 +52,22 @@ export default function StoresPage() {
 
   const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const certifiedCount = stores.filter(s => s.status === 'Passed').length;
+  const certifiedCount = stores.filter(s => s.status === 'Passed' || s.halalCertified).length;
   const dueCount = stores.filter(s => s.status === 'Due for Audit').length;
   const reviewCount = stores.filter(s => s.status === 'Under Review').length;
+  const certifiedPct = stores.length > 0 ? Math.round((certifiedCount / stores.length) * 100) : 0;
+  const hasFilters = Boolean(searchTerm || selectedFranchise !== 'ALL' || selectedStatus !== 'ALL');
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedFranchise('ALL');
+    setSelectedStatus('ALL');
+    setCurrentPage(1);
+    if (searchParams.has('franchisee')) {
+      searchParams.delete('franchisee');
+      setSearchParams(searchParams);
+    }
+  };
 
   const handleExportCsv = () => {
     const headers = ['Branch Code', 'Store Name', 'Franchise Partner', 'Address', 'Postcode', 'Contact Person', 'Phone', 'Status', 'Last Audit Date'];
@@ -104,58 +116,133 @@ export default function StoresPage() {
   };
 
   return (
-    <div>
-      {/* KPI Summary Strip */}
-      <div className="kpi-grid-4">
-        <div className="metric-card" onClick={() => { setSelectedStatus('ALL'); setCurrentPage(1); }} style={{ cursor: 'pointer' }}>
-          <div>
-            <div className="metric-label">Total UK KFC Stores</div>
-            <div className="metric-value">{stores.length}</div>
-            <div className="metric-sub">Across {franchisees.length} Franchise Partners</div>
+    <div className="page-shell">
+      {/* Executive Page Header */}
+      <div className="dash-header">
+        <div>
+          <h1 className="dash-title">KFC Store Directory</h1>
+          <div className="dash-subtitle">
+            <span>Master registry of {stores.length} UK certified KFC restaurants across {franchisees.length} Franchise</span>
           </div>
-          <div className="metric-icon-box blue"><Store size={22} /></div>
         </div>
 
-        <div className="metric-card" onClick={() => { setSelectedStatus('Passed'); setCurrentPage(1); }} style={{ cursor: 'pointer' }}>
-          <div>
-            <div className="metric-label">Certified Halal (Passed)</div>
-            <div className="metric-value" style={{ color: '#059669' }}>{certifiedCount}</div>
-            <div className="metric-sub">Active HFA Certificate Issued</div>
-          </div>
-          <div className="metric-icon-box green"><CheckCircle2 size={22} /></div>
-        </div>
-
-        <div className="metric-card" onClick={() => { setSelectedStatus('Under Review'); setCurrentPage(1); }} style={{ cursor: 'pointer' }}>
-          <div>
-            <div className="metric-label">Under Supervisory Review</div>
-            <div className="metric-value" style={{ color: '#2563eb' }}>{reviewCount}</div>
-            <div className="metric-sub">Pending compliance sign-off</div>
-          </div>
-          <div className="metric-icon-box blue"><Clock size={22} /></div>
-        </div>
-
-        <div className="metric-card" onClick={() => { setSelectedStatus('Due for Audit'); setCurrentPage(1); }} style={{ cursor: 'pointer' }}>
-          <div>
-            <div className="metric-label">Scheduled / Due for Audit</div>
-            <div className="metric-value" style={{ color: '#d97706' }}>{dueCount}</div>
-            <div className="metric-sub">Next surveillance cycle</div>
-          </div>
-          <div className="metric-icon-box amber"><AlertTriangle size={22} /></div>
+        <div className="dash-controls">
+          <button type="button" onClick={handleExportCsv} className="btn btn-outline btn-sm" style={{ height: 36 }}>
+            <Download size={14} />
+            <span>Export CSV</span>
+          </button>
+          <button type="button" onClick={() => setIsAddStoreOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
+            <Plus size={15} />
+            <span>Register Store</span>
+          </button>
         </div>
       </div>
 
-      {/* Table Toolbar / Filters */}
-      <div className="card" style={{ marginBottom: '1.25rem', padding: '1.25rem' }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '0.85rem'
-        }}>
-          {/* Search */}
-          <div className="search-input-wrapper" style={{ flex: '1 1 260px' }}>
-            <Search className="search-icon" size={16} />
+      {/* 4 Precision Clickable Filter KPI Cards */}
+      <div className="dash-kpi-grid">
+        <div
+          className={`dash-kpi-card ${selectedStatus === 'ALL' ? 'is-selected' : ''}`}
+          onClick={() => { setSelectedStatus('ALL'); setCurrentPage(1); }}
+        >
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Total UK KFC Stores</span>
+            <div className="dash-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+              <Store size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value-row">
+              <span className="dash-kpi-value">{stores.length}</span>
+            </div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: '100%', background: '#2563eb' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>Across {franchisees.length} Franchise</span>
+            <ChevronRight size={14} color="#94a3b8" />
+          </div>
+        </div>
+
+        <div
+          className={`dash-kpi-card ${selectedStatus === 'Passed' ? 'is-selected' : ''}`}
+          onClick={() => { setSelectedStatus('Passed'); setCurrentPage(1); }}
+        >
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Certified Halal</span>
+            <div className="dash-kpi-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+              <CheckCircle2 size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value-row">
+              <span className="dash-kpi-value">{certifiedCount}</span>
+              <span className="dash-kpi-denom">/ {stores.length}</span>
+            </div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: `${certifiedPct}%`, background: '#059669' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>{certifiedPct}% active HFA certificate</span>
+            <ChevronRight size={14} color="#94a3b8" />
+          </div>
+        </div>
+
+        <div
+          className={`dash-kpi-card ${selectedStatus === 'Under Review' ? 'is-selected' : ''}`}
+          onClick={() => { setSelectedStatus('Under Review'); setCurrentPage(1); }}
+        >
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Under Review</span>
+            <div className="dash-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+              <Clock size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value-row">
+              <span className="dash-kpi-value">{reviewCount}</span>
+            </div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: `${stores.length ? Math.round((reviewCount / stores.length) * 100) : 0}%`, background: '#2563eb' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>Pending compliance sign-off</span>
+            <ChevronRight size={14} color="#94a3b8" />
+          </div>
+        </div>
+
+        <div
+          className={`dash-kpi-card ${selectedStatus === 'Due for Audit' ? 'is-selected' : ''}`}
+          onClick={() => { setSelectedStatus('Due for Audit'); setCurrentPage(1); }}
+        >
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Due for Audit</span>
+            <div className="dash-kpi-icon" style={{ background: '#fffbeb', color: '#d97706' }}>
+              <AlertTriangle size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value-row">
+              <span className="dash-kpi-value">{dueCount}</span>
+            </div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: `${stores.length ? Math.round((dueCount / stores.length) * 100) : 0}%`, background: '#f59e0b' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>Next surveillance cycle queue</span>
+            <ChevronRight size={14} color="#94a3b8" />
+          </div>
+        </div>
+      </div>
+
+      {/* Unified Table Surface with Integrated Toolbar */}
+      <div className="page-surface">
+        <div className="surface-toolbar">
+          <div className="search-input-wrapper" style={{ flex: '1 1 280px', maxWidth: 420 }}>
+            <Search className="search-icon" size={15} />
             <input
               type="text"
               className="search-input"
@@ -165,8 +252,7 @@ export default function StoresPage() {
             />
           </div>
 
-          {/* Filters & Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <select
               className="filter-select"
               value={selectedFranchise}
@@ -179,7 +265,7 @@ export default function StoresPage() {
                 }
               }}
             >
-              <option value="ALL">All Franchise Partners ({franchisees.length})</option>
+              <option value="ALL">All Franchise ({franchisees.length})</option>
               {franchisees.map(f => (
                 <option key={f.id} value={f.name}>{f.name}</option>
               ))}
@@ -190,35 +276,29 @@ export default function StoresPage() {
               value={selectedStatus}
               onChange={e => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
             >
-              <option value="ALL">All Compliance Statuses</option>
+              <option value="ALL">All Statuses</option>
               <option value="Passed">Certified Halal (Passed)</option>
               <option value="Due for Audit">Due for Audit</option>
               <option value="Under Review">Under Review</option>
               <option value="Action Required">Action Required</option>
             </select>
 
-            <button onClick={handleExportCsv} className="btn btn-outline" title="Export filtered stores to CSV">
-              <Download size={15} />
-              <span>Export CSV</span>
-            </button>
-
-            <button onClick={() => setIsAddStoreOpen(true)} className="btn btn-primary">
-              <Plus size={16} />
-              <span>Register Store</span>
-            </button>
+            {hasFilters && (
+              <button type="button" onClick={clearFilters} className="btn btn-ghost btn-sm">
+                <X size={14} />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Stores Table */}
-      <div className="table-container">
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table">
             <thead>
               <tr>
                 <th>Branch Code</th>
-                <th>Store / Branch Name</th>
-                <th>Address & Postcode</th>
+                <th>Store / Contact</th>
+                <th>Address &amp; Postcode</th>
                 <th>Franchise Partner</th>
                 <th>Compliance Status</th>
                 <th>Last Inspected</th>
@@ -226,90 +306,82 @@ export default function StoresPage() {
               </tr>
             </thead>
             <tbody>
-              {paginated.map((store) => (
-                <tr key={store.id}>
-                  <td>
-                    <span style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 700,
-                      fontSize: '0.8rem',
-                      color: 'var(--slate-900)',
-                      background: 'var(--slate-100)',
-                      padding: '0.25rem 0.55rem',
-                      borderRadius: '6px'
-                    }}>
-                      {store.branchCode}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 700, color: 'var(--slate-900)' }}>
-                      {store.name}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: 2 }}>
-                      <User size={12} />
-                      <span>{store.contactPerson} ({store.contactPhone})</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.35rem', fontSize: '0.82rem' }}>
-                      <MapPin size={14} color="#059669" style={{ marginTop: '2px', flexShrink: 0 }} />
-                      <div>
-                        <div>{store.address}</div>
-                        <div style={{ fontWeight: 600, color: 'var(--slate-500)' }}>{store.postcode}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: 'var(--slate-800)' }}>
-                      {store.franchisee}
-                    </div>
-                  </td>
-                  <td>
-                    {getStatusBadge(store.status)}
-                  </td>
-                  <td>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>{store.lastAuditDate}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--slate-500)' }}>Next: {store.nextAuditDueDate}</div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <ActionMenu
-                      items={[
-                        {
-                          label: 'Conduct Halal Audit',
-                          icon: ClipboardCheck,
-                          color: '#e4002b',
-                          onClick: () => setAuditStoreId(store.id)
-                        },
-                        {
-                          label: 'View / Print Certificate',
-                          icon: Award,
-                          color: '#059669',
-                          onClick: () => navigate(`/certificates?storeId=${encodeURIComponent(store.id)}`)
-                        },
-                        {
-                          label: 'Edit Store Details',
-                          icon: Edit,
-                          color: '#2563eb',
-                          onClick: () => setEditingStore({ ...store })
-                        },
-                        {
-                          label: 'Locate on UK Map',
-                          icon: MapPin,
-                          color: '#059669',
-                          onClick: () => navigate('/map')
-                        },
-                        { divider: true },
-                        {
-                          label: 'Delete Store',
-                          icon: Trash2,
-                          danger: true,
-                          onClick: () => deleteStore(store.id)
-                        }
-                      ]}
-                    />
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="empty-state">
+                    No KFC branches match your current filters.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                paginated.map((store, idx) => (
+                  <tr key={`store-row-${store.id}-${idx}`}>
+                    <td>
+                      <span className="code-chip">{store.branchCode}</span>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{store.name}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: 2 }}>
+                        <User size={12} />
+                        <span>{store.contactPerson} ({store.contactPhone})</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '12.5px' }}>
+                        <MapPin size={14} color="#059669" style={{ marginTop: 2, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ color: '#334155' }}>{store.address}</div>
+                          <div style={{ fontWeight: 700, fontSize: '11.5px', color: '#64748b' }}>{store.postcode}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: '#1e293b' }}>{store.franchisee}</div>
+                    </td>
+                    <td>{getStatusBadge(store.status)}</td>
+                    <td>
+                      <div className="tabular-nums" style={{ fontSize: '12.5px', fontWeight: 600, color: '#0f172a' }}>{store.lastAuditDate}</div>
+                      <div className="tabular-nums" style={{ fontSize: '11.5px', color: '#64748b' }}>Next: {store.nextAuditDueDate}</div>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <ActionMenu
+                        items={[
+                          {
+                            label: 'Conduct Halal Audit',
+                            icon: ClipboardCheck,
+                            color: '#e4002b',
+                            onClick: () => setAuditStoreId(store.id)
+                          },
+                          {
+                            label: 'View / Print Certificate',
+                            icon: Award,
+                            color: '#059669',
+                            onClick: () => navigate(`/certificates?storeId=${encodeURIComponent(store.id)}`)
+                          },
+                          {
+                            label: 'Edit Store Details',
+                            icon: Edit,
+                            color: '#2563eb',
+                            onClick: () => setEditingStore({ ...store })
+                          },
+                          {
+                            label: 'Locate on UK Map',
+                            icon: MapPin,
+                            color: '#059669',
+                            onClick: () => navigate('/map')
+                          },
+                          { divider: true },
+                          {
+                            label: 'Delete Store',
+                            icon: Trash2,
+                            danger: true,
+                            onClick: () => deleteStore(store.id)
+                          }
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -317,9 +389,10 @@ export default function StoresPage() {
         <Pagination
           totalItems={filtered.length}
           currentPage={currentPage}
-          rowsPerPage={pageSize}
+          pageSize={pageSize}
           onPageChange={setCurrentPage}
-          onRowsPerPageChange={setPageSize}
+          onPageSizeChange={setPageSize}
+          itemName="stores"
         />
       </div>
 
@@ -338,14 +411,14 @@ export default function StoresPage() {
 
       {/* Edit Store Modal */}
       {editingStore && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
+        <div className="modal-backdrop" onClick={() => setEditingStore(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Edit size={19} color="#059669" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Edit size={18} color="#059669" />
                 <h3 className="card-title">Edit KFC Store — {editingStore.branchCode}</h3>
               </div>
-              <button onClick={() => setEditingStore(null)} className="btn btn-ghost btn-sm">
+              <button type="button" onClick={() => setEditingStore(null)} className="btn btn-ghost btn-sm">
                 <X size={18} />
               </button>
             </div>

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useKfc } from '../context/KfcContext';
 import {
   ClipboardCheck, Clock, CheckCircle2, AlertTriangle, AlertOctagon,
-  Search, Plus, Eye, Download, TrendingUp
+  Search, Plus, Eye, Download, TrendingUp, X
 } from 'lucide-react';
 import AuditDetailModal from '../components/AuditDetailModal';
 import NewAuditModal from '../components/NewAuditModal';
@@ -65,6 +65,10 @@ export default function AuditsPage({ fixedCategory }) {
     ? (filtered.reduce((acc, a) => acc + (Number(a.score) || 90), 0) / filtered.length).toFixed(1)
     : '0.0';
 
+  const passedTotal = audits.filter(a => a.category === 'Passed').length;
+  const awaitingTotal = audits.filter(a => a.category === 'Recommend For Pass' || a.category === 'Review List').length;
+  const hasFilters = Boolean(searchTerm || selectedAuditor !== 'ALL' || selectedSession !== 'ALL');
+
   const handleExportCsv = () => {
     const headers = ['Branch Code', 'Store Name', 'Franchise Partner', 'Auditor', 'Session', 'Date', 'Score', 'Status Category'];
     const rows = filtered.map(a => [
@@ -94,7 +98,7 @@ export default function AuditsPage({ fixedCategory }) {
       case 'Recommend For Pass':
         return <span className="badge badge-blue"><span className="badge-dot" /> Rec. For Pass</span>;
       case 'Review List':
-        return <span className="badge badge-warn"><span className="badge-dot" /> Review</span>;
+        return <span className="badge badge-warn"><span className="badge-dot" /> In Review</span>;
       case 'Other Fail':
         return <span className="badge badge-warn"><span className="badge-dot" /> Other Fail</span>;
       case 'L3 Critical Fail':
@@ -109,113 +113,144 @@ export default function AuditsPage({ fixedCategory }) {
     navigate(route);
   };
 
+  const pageHeading = activeCategory === 'ALL' ? 'Master Audit Registry' : activeCategory;
+
   return (
-    <div>
-      {/* KPI Summary Strip */}
-      <div className="kpi-grid-4">
-        <div className="metric-card">
-          <div>
-            <div className="metric-label">Matching Audits</div>
-            <div className="metric-value">{filtered.length}</div>
-            <div className="metric-sub">Out of {audits.length} total reports</div>
+    <div className="page-shell">
+      {/* Executive Header */}
+      <div className="dash-header">
+        <div>
+          <h1 className="dash-title">{pageHeading}</h1>
+          <div className="dash-subtitle">
+            <span>Physical restaurant inspection reports, compliance checklists, and supervisory sign-off pipeline</span>
           </div>
-          <div className="metric-icon-box blue"><ClipboardCheck size={22} /></div>
         </div>
 
-        <div className="metric-card">
-          <div>
-            <div className="metric-label">Passed & Certified</div>
-            <div className="metric-value" style={{ color: '#059669' }}>
-              {audits.filter(a => a.category === 'Passed').length}
-            </div>
-            <div className="metric-sub">100% HFA Standard Met</div>
-          </div>
-          <div className="metric-icon-box green"><CheckCircle2 size={22} /></div>
-        </div>
-
-        <div className="metric-card">
-          <div>
-            <div className="metric-label">Awaiting Sign-Off</div>
-            <div className="metric-value" style={{ color: '#d97706' }}>
-              {audits.filter(a => a.category === 'Recommend For Pass' || a.category === 'Review List').length}
-            </div>
-            <div className="metric-sub">RFP & Review List Queue</div>
-          </div>
-          <div className="metric-icon-box amber"><Clock size={22} /></div>
-        </div>
-
-        <div className="metric-card">
-          <div>
-            <div className="metric-label">Average Inspection Score</div>
-            <div className="metric-value" style={{ color: '#0f172a' }}>{avgScore}%</div>
-            <div className="metric-sub">Current filtered view</div>
-          </div>
-          <div className="metric-icon-box green"><TrendingUp size={22} /></div>
+        <div className="dash-controls">
+          <button type="button" onClick={handleExportCsv} className="btn btn-outline btn-sm" style={{ height: 36 }}>
+            <Download size={14} />
+            <span>Export CSV</span>
+          </button>
+          <button type="button" onClick={() => setIsNewAuditOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
+            <Plus size={15} />
+            <span>Record Audit</span>
+          </button>
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="tabs-container">
-        <button
-          onClick={() => handleTabClick('ALL', '/audits')}
-          className={`tab-btn ${activeCategory === 'ALL' ? 'active' : ''}`}
-        >
-          <ClipboardCheck size={16} />
-          <span>All Audits ({audits.length})</span>
-        </button>
+      {/* 4 Precision KPI Cards */}
+      <div className="dash-kpi-grid">
+        <div className="dash-kpi-card">
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Matching Audits</span>
+            <div className="dash-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
+              <ClipboardCheck size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value">{filtered.length}</div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: `${audits.length ? Math.round((filtered.length / audits.length) * 100) : 0}%`, background: '#2563eb' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>Out of {audits.length} recorded inspections</span>
+          </div>
+        </div>
 
-        <button
-          onClick={() => handleTabClick('Recommend For Pass', '/audits/recommend-pass')}
-          className={`tab-btn ${activeCategory === 'Recommend For Pass' ? 'active' : ''}`}
-        >
-          <Clock size={16} color="#2563eb" />
-          <span>Recommend For Pass ({audits.filter(a => a.category === 'Recommend For Pass').length})</span>
-        </button>
+        <div className="dash-kpi-card" onClick={() => handleTabClick('Passed', '/audits/passed')}>
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Passed &amp; Certified</span>
+            <div className="dash-kpi-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+              <CheckCircle2 size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value" style={{ color: '#059669' }}>{passedTotal}</div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: `${audits.length ? Math.round((passedTotal / audits.length) * 100) : 0}%`, background: '#059669' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>100% HFA Halal standard met</span>
+          </div>
+        </div>
 
-        <button
-          onClick={() => handleTabClick('Review List', '/audits/review')}
-          className={`tab-btn ${activeCategory === 'Review List' ? 'active' : ''}`}
-        >
-          <Clock size={16} color="#d97706" />
-          <span>Review List ({audits.filter(a => a.category === 'Review List').length})</span>
-        </button>
+        <div className="dash-kpi-card" onClick={() => handleTabClick('Recommend For Pass', '/audits/recommend-pass')}>
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Awaiting Sign-Off</span>
+            <div className="dash-kpi-icon" style={{ background: '#fffbeb', color: '#d97706' }}>
+              <Clock size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value" style={{ color: '#d97706' }}>{awaitingTotal}</div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: `${audits.length ? Math.round((awaitingTotal / audits.length) * 100) : 0}%`, background: '#f59e0b' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>RFP &amp; Review List queue</span>
+          </div>
+        </div>
 
-        <button
-          onClick={() => handleTabClick('Passed', '/audits/passed')}
-          className={`tab-btn ${activeCategory === 'Passed' ? 'active' : ''}`}
-        >
-          <CheckCircle2 size={16} color="#059669" />
-          <span>Passed ({audits.filter(a => a.category === 'Passed').length})</span>
-        </button>
-
-        <button
-          onClick={() => handleTabClick('Other Fail', '/audits/other-fail')}
-          className={`tab-btn ${activeCategory === 'Other Fail' ? 'active' : ''}`}
-        >
-          <AlertTriangle size={16} color="#ea580c" />
-          <span>Other Fail ({audits.filter(a => a.category === 'Other Fail').length})</span>
-        </button>
-
-        <button
-          onClick={() => handleTabClick('L3 Critical Fail', '/audits/critical-fail')}
-          className={`tab-btn ${activeCategory === 'L3 Critical Fail' ? 'active' : ''}`}
-        >
-          <AlertOctagon size={16} color="#dc2626" />
-          <span>Critical L3 ({audits.filter(a => a.category === 'L3 Critical Fail').length})</span>
-        </button>
+        <div className="dash-kpi-card">
+          <div className="dash-kpi-top">
+            <span className="dash-kpi-label">Average Inspection Score</span>
+            <div className="dash-kpi-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
+              <TrendingUp size={18} />
+            </div>
+          </div>
+          <div>
+            <div className="dash-kpi-value">{avgScore}%</div>
+            <div className="dash-kpi-track">
+              <div className="dash-kpi-fill" style={{ width: `${Math.min(100, Number(avgScore))}%`, background: '#059669' }} />
+            </div>
+          </div>
+          <div className="dash-kpi-foot">
+            <span>Current filtered dataset mean</span>
+          </div>
+        </div>
       </div>
 
-      {/* Filter Toolbar */}
-      <div className="card" style={{ marginBottom: '1.25rem', padding: '1.25rem' }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '0.85rem'
-        }}>
-          <div className="search-input-wrapper" style={{ flex: '1 1 260px' }}>
-            <Search className="search-icon" size={16} />
+      {/* Category Segmented Tabs */}
+      <div>
+        <div className="segmented-tabs">
+          {[
+            { cat: 'ALL', route: '/audits', label: 'All Audits', count: audits.length, dot: '#475569' },
+            { cat: 'Recommend For Pass', route: '/audits/recommend-pass', label: 'Recommend For Pass', count: audits.filter(a => a.category === 'Recommend For Pass').length, dot: '#2563eb' },
+            { cat: 'Review List', route: '/audits/review', label: 'Review List', count: audits.filter(a => a.category === 'Review List').length, dot: '#f59e0b' },
+            { cat: 'Passed', route: '/audits/passed', label: 'Passed', count: audits.filter(a => a.category === 'Passed').length, dot: '#059669' },
+            { cat: 'Other Fail', route: '/audits/other-fail', label: 'Other Fail', count: audits.filter(a => a.category === 'Other Fail').length, dot: '#f97316' },
+            { cat: 'L3 Critical Fail', route: '/audits/critical-fail', label: 'Critical L3', count: audits.filter(a => a.category === 'L3 Critical Fail').length, dot: '#dc2626' },
+          ].map(tab => (
+            <button
+              key={tab.cat}
+              type="button"
+              onClick={() => handleTabClick(tab.cat, tab.route)}
+              className={`segmented-tab ${activeCategory === tab.cat ? 'active' : ''}`}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: tab.dot }} />
+              <span>{tab.label}</span>
+              <span className="tabular-nums" style={{
+                fontSize: '11px',
+                padding: '1px 6px',
+                borderRadius: 6,
+                background: activeCategory === tab.cat ? '#f1f5f9' : 'rgba(15, 23, 42, 0.06)',
+                color: '#475569'
+              }}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Unified Audits Table Surface */}
+      <div className="page-surface">
+        <div className="surface-toolbar">
+          <div className="search-input-wrapper" style={{ flex: '1 1 260px', maxWidth: 420 }}>
+            <Search className="search-icon" size={15} />
             <input
               type="text"
               className="search-input"
@@ -225,7 +260,7 @@ export default function AuditsPage({ fixedCategory }) {
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <select
               className="filter-select"
               value={selectedAuditor}
@@ -248,124 +283,129 @@ export default function AuditsPage({ fixedCategory }) {
               ))}
             </select>
 
-            <button onClick={handleExportCsv} className="btn btn-outline">
-              <Download size={15} />
-              <span>Export CSV</span>
-            </button>
-
-            <button onClick={() => setIsNewAuditOpen(true)} className="btn btn-kfc">
-              <Plus size={16} />
-              <span>Record Audit</span>
-            </button>
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedAuditor('ALL');
+                  setSelectedSession('ALL');
+                  setCurrentPage(1);
+                }}
+                className="btn btn-ghost btn-sm"
+              >
+                <X size={14} />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Audits Table */}
-      <div className="table-container">
         <div style={{ overflowX: 'auto' }}>
           <table className="data-table">
             <thead>
               <tr>
                 <th>Branch Code</th>
                 <th>Store / Branch Name</th>
-                <th>Auditor</th>
+                <th>Auditor / Round</th>
                 <th>Franchise Partner</th>
                 <th>Inspection Date</th>
                 <th>Score</th>
-                <th>Status Category</th>
+                <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {paginated.map((audit) => (
-                <tr key={audit.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedAudit(audit)}>
-                  <td>
-                    <span style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 700,
-                      fontSize: '0.78rem',
-                      background: 'var(--slate-100)',
-                      padding: '0.25rem 0.5rem',
-                      borderRadius: '6px'
-                    }}>
-                      {audit.branchCode}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 700, color: 'var(--slate-900)' }}>
-                      {audit.storeName}
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--slate-500)' }}>
-                      {audit.address}
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: 'var(--slate-800)' }}>
-                      {audit.auditor}
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--slate-500)' }}>
-                      {audit.session}
-                    </div>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 500 }}>{audit.franchisee}</div>
-                  </td>
-                  <td>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>{audit.auditDate}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--slate-500)' }}>{audit.timeIn} - {audit.timeOut}</div>
-                  </td>
-                  <td>
-                    <span style={{
-                      fontWeight: 800,
-                      fontSize: '0.9rem',
-                      color: audit.score >= 85 ? '#059669' : audit.score >= 70 ? '#b45309' : '#b91c1c'
-                    }}>
-                      {audit.score}%
-                    </span>
-                  </td>
-                  <td>
-                    {getStatusBadge(audit.category)}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <ActionMenu
-                      items={[
-                        {
-                          label: 'Inspect Audit Dossier',
-                          icon: Eye,
-                          color: '#059669',
-                          onClick: () => setSelectedAudit(audit)
-                        },
-                        {
-                          label: 'Approve & Issue Pass',
-                          icon: CheckCircle2,
-                          color: '#059669',
-                          onClick: () => updateAuditCategory(audit.id, 'Passed')
-                        },
-                        {
-                          label: 'Move to Review List',
-                          icon: Clock,
-                          color: '#d97706',
-                          onClick: () => updateAuditCategory(audit.id, 'Review List')
-                        },
-                        {
-                          label: 'Flag Other Fail (NC)',
-                          icon: AlertTriangle,
-                          color: '#ea580c',
-                          onClick: () => updateAuditCategory(audit.id, 'Other Fail')
-                        },
-                        { divider: true },
-                        {
-                          label: 'Escalate Critical L3',
-                          icon: AlertOctagon,
-                          danger: true,
-                          onClick: () => updateAuditCategory(audit.id, 'L3 Critical Fail')
-                        }
-                      ]}
-                    />
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="empty-state">
+                    No inspection audits match your active filters.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                paginated.map((audit, idx) => (
+                  <tr
+                    key={`aud-row-${audit.id}-${idx}`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setSelectedAudit(audit)}
+                  >
+                    <td>
+                      <span className="code-chip">{audit.branchCode}</span>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{audit.storeName}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748b' }}>{audit.address}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: '#1e293b' }}>{audit.auditor}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748b' }}>{audit.session}</div>
+                    </td>
+                    <td>
+                      <div style={{ fontSize: '12.5px', fontWeight: 500, color: '#334155' }}>{audit.franchisee}</div>
+                    </td>
+                    <td>
+                      <div className="tabular-nums" style={{ fontSize: '12.5px', fontWeight: 600, color: '#0f172a' }}>{audit.auditDate}</div>
+                      <div className="tabular-nums" style={{ fontSize: '11.5px', color: '#64748b' }}>{audit.timeIn} - {audit.timeOut}</div>
+                    </td>
+                    <td>
+                      <div className="dash-score-pill">
+                        <span style={{
+                          fontWeight: 800,
+                          fontSize: '13px',
+                          color: audit.score >= 85 ? '#059669' : audit.score >= 70 ? '#d97706' : '#dc2626'
+                        }}>
+                          {audit.score}%
+                        </span>
+                        <div style={{ width: 40, height: 4, background: '#e2e8f0', borderRadius: 999, overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${Math.min(100, audit.score || 0)}%`,
+                            height: '100%',
+                            background: audit.score >= 85 ? '#059669' : audit.score >= 70 ? '#f59e0b' : '#dc2626'
+                          }} />
+                        </div>
+                      </div>
+                    </td>
+                    <td>{getStatusBadge(audit.category)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <ActionMenu
+                        items={[
+                          {
+                            label: 'Inspect Audit Dossier',
+                            icon: Eye,
+                            color: '#059669',
+                            onClick: () => setSelectedAudit(audit)
+                          },
+                          {
+                            label: 'Approve & Issue Pass',
+                            icon: CheckCircle2,
+                            color: '#059669',
+                            onClick: () => updateAuditCategory(audit.id, 'Passed')
+                          },
+                          {
+                            label: 'Move to Review List',
+                            icon: Clock,
+                            color: '#d97706',
+                            onClick: () => updateAuditCategory(audit.id, 'Review List')
+                          },
+                          {
+                            label: 'Flag Other Fail (NC)',
+                            icon: AlertTriangle,
+                            color: '#ea580c',
+                            onClick: () => updateAuditCategory(audit.id, 'Other Fail')
+                          },
+                          { divider: true },
+                          {
+                            label: 'Escalate Critical L3',
+                            icon: AlertOctagon,
+                            danger: true,
+                            onClick: () => updateAuditCategory(audit.id, 'L3 Critical Fail')
+                          }
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -373,13 +413,13 @@ export default function AuditsPage({ fixedCategory }) {
         <Pagination
           totalItems={filtered.length}
           currentPage={currentPage}
-          rowsPerPage={pageSize}
+          pageSize={pageSize}
           onPageChange={setCurrentPage}
-          onRowsPerPageChange={setPageSize}
+          onPageSizeChange={setPageSize}
+          itemName="audits"
         />
       </div>
 
-      {/* Modals */}
       {selectedAudit && (
         <AuditDetailModal
           audit={selectedAudit}
