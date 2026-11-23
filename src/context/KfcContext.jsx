@@ -51,19 +51,20 @@ function ensureUniqueIds(arr, prefix = 'item') {
   });
 }
 
+const AUTH_SESSION_KEY = 'kfc_auth_session';
+
 export function KfcProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('kfc_current_user');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return {
-      username: 'Taoheed',
-      fullName: 'Taoheed HFA',
-      role: 'Operations Manager',
-      email: 'taoheed@hfa-portals.com',
-      avatar: 'T'
-    };
+    try {
+      // Clear legacy auto-signed-in localStorage key so visitors always start at /login
+      localStorage.removeItem('kfc_current_user');
+      const saved = sessionStorage.getItem(AUTH_SESSION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.username) return parsed;
+      }
+    } catch (e) {}
+    return null;
   });
 
   const [dbConnected, setDbConnected] = useState(false);
@@ -169,7 +170,13 @@ export function KfcProvider({ children }) {
   }, [syncFromBackend]);
 
   useEffect(() => {
-    localStorage.setItem('kfc_current_user', JSON.stringify(currentUser));
+    try {
+      if (currentUser) {
+        sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(currentUser));
+      } else {
+        sessionStorage.removeItem(AUTH_SESSION_KEY);
+      }
+    } catch (e) {}
   }, [currentUser]);
 
   const resetToOfficialDatabase = async () => {
@@ -224,7 +231,10 @@ export function KfcProvider({ children }) {
 
   const logout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('kfc_current_user');
+    try {
+      sessionStorage.removeItem(AUTH_SESSION_KEY);
+      localStorage.removeItem('kfc_current_user');
+    } catch (e) {}
     toast.success('Logged out successfully');
   };
 

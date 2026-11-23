@@ -25,6 +25,14 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+function PublicOnlyRoute({ children }) {
+  const { currentUser } = useKfc();
+  if (currentUser) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
 export default function App() {
   return (
     <KfcProvider>
@@ -43,7 +51,11 @@ export default function App() {
           }}
         />
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          <Route path="/login" element={
+            <PublicOnlyRoute>
+              <LoginPage />
+            </PublicOnlyRoute>
+          } />
 
           <Route path="/" element={
             <ProtectedRoute>
