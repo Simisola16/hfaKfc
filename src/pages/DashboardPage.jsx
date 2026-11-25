@@ -66,8 +66,7 @@ export default function DashboardPage() {
     assignments = [], appeals, requests, gpsLogs, syncFromBackend
   } = useKfc();
 
-  // Command Center Filters & UI State
-  const [selectedRound, setSelectedRound] = useState('ALL');
+  // Dashboard Filters & UI State
   const [analyticsTab, setAnalyticsTab] = useState('velocity'); // 'velocity' | 'franchise'
   const [queueTab, setQueueTab] = useState('all'); // 'all' | 'critical' | 'rfp' | 'appeals' | 'requests'
   const [opsTab, setOpsTab] = useState('pings'); // 'pings' | 'scheduled'
@@ -80,7 +79,7 @@ export default function DashboardPage() {
   const [mapLayer, setMapLayer] = useState('osm'); // 'osm' | 'esri'
   const [focusedStoreId, setFocusedStoreId] = useState(null);
 
-  // Modals & Telemetry Refresh
+  // Modals & Data Refresh
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAudit, setSelectedAudit] = useState(null);
@@ -106,23 +105,7 @@ export default function DashboardPage() {
     }
   };
 
-  // Top 3 audit rounds for Hero filter pills
-  const availableRounds = useMemo(() => {
-    const counts = {};
-    audits.forEach(a => {
-      const s = a.session || 'Round Two 2026';
-      counts[s] = (counts[s] || 0) + 1;
-    });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([name]) => name);
-  }, [audits]);
-
-  const filteredAudits = useMemo(() => {
-    if (selectedRound === 'ALL') return audits;
-    return audits.filter(a => (a.session || 'Round Two 2026') === selectedRound);
-  }, [audits, selectedRound]);
+  const filteredAudits = audits;
 
   // Network & Compliance Metrics
   const totalStores = stores.length;
@@ -560,7 +543,7 @@ export default function DashboardPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `HFA_KFC_Executive_Brief_${selectedRound.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `HFA_KFC_Audit_Report_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -582,7 +565,7 @@ export default function DashboardPage() {
 
   return (
     <div className="dashv2-shell">
-      {/* 1. Executive Dark Command Console */}
+      {/* 1. Top Dashboard Overview Banner */}
       <section className="dashv2-hero">
         <div>
           <div className="dashv2-hero-eyebrow">
@@ -593,44 +576,24 @@ export default function DashboardPage() {
                 borderRadius: '50%',
                 background: dbConnected ? '#34d399' : '#fbbf24',
               }} />
-              {dbConnected ? 'HFA × KFC UK LIVE TELEMETRY' : 'HFA × KFC UK SNAPSHOT MODE'}
+              {dbConnected ? 'HFA KFC UK • Live' : 'HFA KFC UK • Local'}
             </span>
             <span className="tabular-nums" style={{ color: '#94a3b8' }}>
-              Synced {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
 
-          <h1 className="dashv2-hero-title">Assurance Command Center</h1>
+          <h1 className="dashv2-hero-title">KFC UK Dashboard</h1>
           <p className="dashv2-hero-sub">
-            Monitoring <strong className="tabular-nums" style={{ color: '#ffffff' }}>{totalStores}</strong> UK branches across{' '}
-            <strong className="tabular-nums" style={{ color: '#ffffff' }}>{franchisees.length}</strong> franchise groups •{' '}
-            <span style={{ color: '#6ee7b7', fontWeight: 600 }}>{certifiedStores} Halal Certified</span>
+            <strong className="tabular-nums" style={{ color: '#ffffff' }}>{totalStores}</strong> stores •{' '}
+            <strong className="tabular-nums" style={{ color: '#ffffff' }}>{franchisees.length}</strong> franchisees •{' '}
+            <span style={{ color: '#6ee7b7', fontWeight: 600 }}>{certifiedStores} Halal certified</span>
           </p>
 
           <div className="dashv2-hero-toolbar">
-            <div className="dashv2-round-group">
-              <button
-                type="button"
-                onClick={() => setSelectedRound('ALL')}
-                className={`dashv2-round-pill ${selectedRound === 'ALL' ? 'active' : ''}`}
-              >
-                All Rounds
-              </button>
-              {availableRounds.map(round => (
-                <button
-                  key={round}
-                  type="button"
-                  onClick={() => setSelectedRound(round)}
-                  className={`dashv2-round-pill ${selectedRound === round ? 'active' : ''}`}
-                >
-                  {round.replace(' 2026', '')}
-                </button>
-              ))}
-            </div>
-
             <button type="button" onClick={handleExportBrief} className="dashv2-btn-ghost">
               <Download size={14} />
-              <span>Export Brief</span>
+              <span>Export CSV</span>
             </button>
 
             <button
@@ -639,7 +602,7 @@ export default function DashboardPage() {
               disabled={refreshing}
               className="dashv2-btn-ghost"
               style={{ width: 34, padding: 0 }}
-              title="Sync live backend telemetry"
+              title="Refresh data"
             >
               <RefreshCw size={14} className={refreshing ? 'spin' : ''} />
             </button>
@@ -1038,10 +1001,10 @@ export default function DashboardPage() {
                   <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                       <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
-                        5-Stage Audit Pipeline ({selectedRound === 'ALL' ? 'All Rounds' : selectedRound})
+                        Audit Status Overview
                       </span>
                       <span className="tabular-nums" style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 600 }}>
-                        {filteredAudits.length} inspections
+                        {filteredAudits.length} audits
                       </span>
                     </div>
 

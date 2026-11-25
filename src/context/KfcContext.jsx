@@ -216,7 +216,7 @@ export function KfcProvider({ children }) {
       const user = found || {
         username,
         fullName: `${username} (HFA Team)`,
-        role: 'Operations Manager',
+        role: 'IT Manager',
         email: `${username.toLowerCase()}@hfa-portals.com`,
         avatar: username.charAt(0).toUpperCase()
       };
@@ -323,6 +323,7 @@ export function KfcProvider({ children }) {
       franchiseeId: auditData.franchiseeId,
       auditor: auditData.auditor || currentUser?.fullName || 'Taoheed',
       auditDate: auditData.auditDate || new Date().toISOString().split('T')[0],
+      endDate: auditData.endDate || auditData.auditDate || '',
       timeIn: auditData.timeIn || '10:00',
       timeOut: auditData.timeOut || '12:00',
       session: auditData.session || 'Round Two 2026',

@@ -84,9 +84,9 @@ export default function LoginPage() {
             Halal Food Authority UK
           </div>
 
-          <h2>HFA × KFC Admin Console</h2>
+          <h2>HFA KFC Admin Console</h2>
           <p>
-            Enterprise assurance platform for Halal Food Authority certification officers, field auditors, and operations managers overseeing KFC UK &amp; Ireland stores.
+            Enterprise assurance platform for Halal Food Authority certification officers, field auditors, and IT Managers overseeing KFC UK &amp; Ireland stores.
           </p>
 
           <div style={{

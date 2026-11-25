@@ -1,19 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useKfc } from '../context/KfcContext';
 import {
   ClipboardCheck, Clock, CheckCircle2, AlertTriangle, AlertOctagon,
-  Search, Plus, Eye, Download, TrendingUp, X
+  Search, Plus, Eye, Download, TrendingUp, X, Layers, Building2, Store, UserCheck, Calendar
 } from 'lucide-react';
 import AuditDetailModal from '../components/AuditDetailModal';
 import NewAuditModal from '../components/NewAuditModal';
 import Pagination from '../components/Pagination';
 import ActionMenu from '../components/ActionMenu';
 
+const ROUND_OPTIONS = ['Round One', 'Round Two', 'Round Three',];
+
+function parseAuditDate(str) {
+  if (!str) return null;
+  const s = String(str).trim();
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])).getTime();
+  const months = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+  };
+  const dmy = s.match(/^(\d{1,2})[-/\s]([A-Za-z]{3,})[-/\s](\d{4})$/);
+  if (dmy) {
+    const m = months[dmy[2].slice(0, 3).toLowerCase()];
+    if (m !== undefined) return new Date(Number(dmy[3]), m, Number(dmy[1])).getTime();
+  }
+  const parsed = Date.parse(s);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 export default function AuditsPage({ fixedCategory }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { audits, updateAuditCategory } = useKfc();
+  const { audits, stores, franchisees, users, updateAuditCategory } = useKfc();
 
   const getCategoryFromPath = () => {
     if (fixedCategory) return fixedCategory;
@@ -27,8 +47,13 @@ export default function AuditsPage({ fixedCategory }) {
 
   const [activeCategory, setActiveCategory] = useState(getCategoryFromPath);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRound, setSelectedRound] = useState('ALL');
+  const [selectedYear, setSelectedYear] = useState('ALL');
+  const [selectedFranchisee, setSelectedFranchisee] = useState('ALL');
+  const [selectedStore, setSelectedStore] = useState('ALL');
   const [selectedAuditor, setSelectedAuditor] = useState('ALL');
-  const [selectedSession, setSelectedSession] = useState('ALL');
+  const [beginningDate, setBeginningDate] = useState('');
+  const [endingDate, setEndingDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
 
@@ -40,24 +65,93 @@ export default function AuditsPage({ fixedCategory }) {
     setCurrentPage(1);
   }, [location.pathname, fixedCategory]);
 
-  const auditors = Array.from(new Set(audits.map(a => a.auditor))).filter(Boolean);
-  const sessions = Array.from(new Set(audits.map(a => a.session))).filter(Boolean);
+  // Dynamic dropdown option lists
+  const yearOptions = useMemo(() => {
+    const yrs = new Set(['2026', '2025', '2024', '2023', '2022', '2021', '2020']);
+    audits.forEach(a => {
+      const m = String(a.session || '').match(/\b(20\d{2})\b/);
+      if (m) yrs.add(m[1]);
+    });
+    return Array.from(yrs).sort((a, b) => Number(b) - Number(a));
+  }, [audits]);
 
-  const filtered = audits.filter(a => {
-    const matchesCat = activeCategory === 'ALL' || a.category === activeCategory;
-    const q = searchTerm.toLowerCase();
-    const matchesSearch =
-      !q ||
-      a.storeName?.toLowerCase().includes(q) ||
-      a.branchCode?.toLowerCase().includes(q) ||
-      a.franchisee?.toLowerCase().includes(q) ||
-      a.auditor?.toLowerCase().includes(q);
+  const franchiseeOptions = useMemo(() => {
+    const names = new Set();
+    franchisees.forEach(f => { if (f.name) names.add(f.name); });
+    stores.forEach(s => { if (s.franchisee) names.add(s.franchisee); });
+    audits.forEach(a => { if (a.franchisee) names.add(a.franchisee); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [franchisees, stores, audits]);
 
-    const matchesAud = selectedAuditor === 'ALL' || a.auditor === selectedAuditor;
-    const matchesSess = selectedSession === 'ALL' || a.session === selectedSession;
+  const storeOptions = useMemo(() => {
+    const map = new Map();
+    stores.forEach(s => {
+      if (selectedFranchisee !== 'ALL' && s.franchisee !== selectedFranchisee) return;
+      if (s.name) map.set(s.name, { name: s.name, branchCode: s.branchCode || '' });
+    });
+    audits.forEach(a => {
+      if (selectedFranchisee !== 'ALL' && a.franchisee !== selectedFranchisee) return;
+      if (a.storeName && !map.has(a.storeName)) {
+        map.set(a.storeName, { name: a.storeName, branchCode: a.branchCode || '' });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [stores, audits, selectedFranchisee]);
 
-    return matchesCat && matchesSearch && matchesAud && matchesSess;
-  });
+  // Reset selectedStore if franchisee filter narrows it out
+  useEffect(() => {
+    if (selectedStore !== 'ALL' && !storeOptions.some(s => s.name === selectedStore)) {
+      setSelectedStore('ALL');
+    }
+  }, [storeOptions, selectedStore]);
+
+  const auditorOptions = useMemo(() => {
+    const names = new Set();
+    audits.forEach(a => { if (a.auditor) names.add(a.auditor); });
+    users.forEach(u => { if (u.username) names.add(u.username); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [audits, users]);
+
+  const filtered = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    const startMs = beginningDate ? parseAuditDate(beginningDate) : null;
+    const endMs = endingDate ? parseAuditDate(endingDate) : null;
+
+    return audits.filter(a => {
+      if (activeCategory !== 'ALL' && a.category !== activeCategory) return false;
+
+      const sess = String(a.session || '').toLowerCase();
+      if (selectedRound !== 'ALL' && !sess.includes(selectedRound.toLowerCase())) return false;
+      if (selectedYear !== 'ALL' && !sess.includes(selectedYear)) return false;
+
+      if (selectedFranchisee !== 'ALL' && a.franchisee !== selectedFranchisee) return false;
+      if (selectedStore !== 'ALL' && a.storeName !== selectedStore) return false;
+      if (selectedAuditor !== 'ALL' && a.auditor !== selectedAuditor) return false;
+
+      if (startMs !== null || endMs !== null) {
+        const audMs = parseAuditDate(a.auditDate);
+        if (audMs === null) return false;
+        if (startMs !== null && audMs < startMs) return false;
+        if (endMs !== null && audMs > endMs) return false;
+      }
+
+      if (q) {
+        return (
+          a.storeName?.toLowerCase().includes(q) ||
+          a.branchCode?.toLowerCase().includes(q) ||
+          a.franchisee?.toLowerCase().includes(q) ||
+          a.auditor?.toLowerCase().includes(q) ||
+          a.session?.toLowerCase().includes(q)
+        );
+      }
+
+      return true;
+    });
+  }, [
+    audits, activeCategory, selectedRound, selectedYear,
+    selectedFranchisee, selectedStore, selectedAuditor,
+    beginningDate, endingDate, searchTerm,
+  ]);
 
   const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
@@ -67,7 +161,29 @@ export default function AuditsPage({ fixedCategory }) {
 
   const passedTotal = audits.filter(a => a.category === 'Passed').length;
   const awaitingTotal = audits.filter(a => a.category === 'Recommend For Pass' || a.category === 'Review List').length;
-  const hasFilters = Boolean(searchTerm || selectedAuditor !== 'ALL' || selectedSession !== 'ALL');
+
+  const hasFilters = Boolean(
+    searchTerm ||
+    selectedRound !== 'ALL' ||
+    selectedYear !== 'ALL' ||
+    selectedFranchisee !== 'ALL' ||
+    selectedStore !== 'ALL' ||
+    selectedAuditor !== 'ALL' ||
+    beginningDate ||
+    endingDate
+  );
+
+  const resetAllFilters = () => {
+    setSearchTerm('');
+    setSelectedRound('ALL');
+    setSelectedYear('ALL');
+    setSelectedFranchisee('ALL');
+    setSelectedStore('ALL');
+    setSelectedAuditor('ALL');
+    setBeginningDate('');
+    setEndingDate('');
+    setCurrentPage(1);
+  };
 
   const handleExportCsv = () => {
     const headers = ['Branch Code', 'Store Name', 'Franchise Partner', 'Auditor', 'Session', 'Date', 'Score', 'Status Category'];
@@ -79,7 +195,7 @@ export default function AuditsPage({ fixedCategory }) {
       `"${(a.session || '').replace(/"/g, '""')}"`,
       a.auditDate,
       `${a.score}%`,
-      `"${a.category}"`
+      `"${a.category}"`,
     ]);
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -113,7 +229,7 @@ export default function AuditsPage({ fixedCategory }) {
     navigate(route);
   };
 
-  const pageHeading = activeCategory === 'ALL' ? 'Master Audit Registry' : activeCategory;
+  const pageHeading = activeCategory === 'ALL' ? 'Audit List' : activeCategory;
 
   return (
     <div className="page-shell">
@@ -122,7 +238,7 @@ export default function AuditsPage({ fixedCategory }) {
         <div>
           <h1 className="dash-title">{pageHeading}</h1>
           <div className="dash-subtitle">
-            <span>Physical restaurant inspection reports, compliance checklists, and supervisory sign-off pipeline</span>
+            <span>Search and filter restaurant inspection records by session, franchisee, store, auditor, and date range</span>
           </div>
         </div>
 
@@ -133,7 +249,7 @@ export default function AuditsPage({ fixedCategory }) {
           </button>
           <button type="button" onClick={() => setIsNewAuditOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
             <Plus size={15} />
-            <span>Record Audit</span>
+            <span>Conduct Audit</span>
           </button>
         </div>
       </div>
@@ -237,7 +353,7 @@ export default function AuditsPage({ fixedCategory }) {
                 padding: '1px 6px',
                 borderRadius: 6,
                 background: activeCategory === tab.cat ? '#f1f5f9' : 'rgba(15, 23, 42, 0.06)',
-                color: '#475569'
+                color: '#475569',
               }}>
                 {tab.count}
               </span>
@@ -246,58 +362,221 @@ export default function AuditsPage({ fixedCategory }) {
         </div>
       </div>
 
-      {/* Unified Audits Table Surface */}
+      {/* Structured Audit List Search & Filter Panel + Table Surface */}
       <div className="page-surface">
-        <div className="surface-toolbar">
-          <div className="search-input-wrapper" style={{ flex: '1 1 260px', maxWidth: 420 }}>
-            <Search className="search-icon" size={15} />
-            <input
-              type="text"
-              className="search-input"
-              value={searchTerm}
-              onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              placeholder="Search store name, branch code, auditor, franchisee..."
-            />
+        <div style={{
+          padding: '16px 18px',
+          borderBottom: '1px solid #e2e8f0',
+          background: '#f8fafc',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}>
+          {/* Row 1: Session (Round + Year) + Keyword Quick Search */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 12,
+            alignItems: 'end',
+          }}>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: 5 }}>
+                <Layers size={13} color="#059669" />
+                <span>Session (Round &amp; Year)</span>
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <select
+                  className="filter-select"
+                  value={selectedRound}
+                  onChange={e => { setSelectedRound(e.target.value); setCurrentPage(1); }}
+                  style={{ width: '100%' }}
+                >
+                  <option value="ALL">All Rounds</option>
+                  {ROUND_OPTIONS.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+                <select
+                  className="filter-select"
+                  value={selectedYear}
+                  onChange={e => { setSelectedYear(e.target.value); setCurrentPage(1); }}
+                  style={{ width: '100%' }}
+                >
+                  <option value="ALL">All Years</option>
+                  {yearOptions.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: 5 }}>
+                <Search size={13} color="#059669" />
+                <span>Quick Keyword Filter</span>
+              </label>
+              <div className="search-input-wrapper" style={{ width: '100%' }}>
+                <Search className="search-icon" size={14} />
+                <input
+                  type="text"
+                  className="search-input"
+                  value={searchTerm}
+                  onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                  placeholder="Branch code, store, auditor, franchisee..."
+                />
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <select
-              className="filter-select"
-              value={selectedAuditor}
-              onChange={e => { setSelectedAuditor(e.target.value); setCurrentPage(1); }}
-            >
-              <option value="ALL">All Field Auditors ({auditors.length})</option>
-              {auditors.map(a => (
-                <option key={a} value={a}>{a}</option>
-              ))}
-            </select>
+          {/* Row 2: Franchisee + Store */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: 12,
+            alignItems: 'end',
+          }}>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: 5 }}>
+                <Building2 size={13} color="#059669" />
+                <span>Franchisee</span>
+              </label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <select
+                  className="filter-select"
+                  value={selectedFranchisee}
+                  onChange={e => { setSelectedFranchisee(e.target.value); setCurrentPage(1); }}
+                  style={{ flex: 1, minWidth: 0 }}
+                >
+                  <option value="ALL">All Franchisees ({franchiseeOptions.length})</option>
+                  {franchiseeOptions.map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(1)}
+                  className="btn btn-primary btn-sm"
+                  style={{ height: 38, padding: '0 12px' }}
+                >
+                  <Search size={13} />
+                  <span>Search</span>
+                </button>
+              </div>
+            </div>
 
-            <select
-              className="filter-select"
-              value={selectedSession}
-              onChange={e => { setSelectedSession(e.target.value); setCurrentPage(1); }}
-            >
-              <option value="ALL">All Inspection Rounds</option>
-              {sessions.map(s => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: 5 }}>
+                <Store size={13} color="#059669" />
+                <span>Store</span>
+              </label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <select
+                  className="filter-select"
+                  value={selectedStore}
+                  onChange={e => { setSelectedStore(e.target.value); setCurrentPage(1); }}
+                  style={{ flex: 1, minWidth: 0 }}
+                >
+                  <option value="ALL">All Stores ({storeOptions.length})</option>
+                  {storeOptions.map(s => (
+                    <option key={s.name} value={s.name}>
+                      {s.branchCode ? `${s.branchCode} • ${s.name}` : s.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(1)}
+                  className="btn btn-primary btn-sm"
+                  style={{ height: 38, padding: '0 12px' }}
+                >
+                  <Search size={13} />
+                  <span>Search</span>
+                </button>
+              </div>
+            </div>
+          </div>
 
-            {hasFilters && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchTerm('');
-                  setSelectedAuditor('ALL');
-                  setSelectedSession('ALL');
-                  setCurrentPage(1);
-                }}
-                className="btn btn-ghost btn-sm"
-              >
-                <X size={14} />
-                <span>Reset</span>
-              </button>
-            )}
+          {/* Row 3: Auditor + Date Range (Beginning Date -> Ending Date) */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: 12,
+            alignItems: 'end',
+          }}>
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: 5 }}>
+                <UserCheck size={13} color="#059669" />
+                <span>Auditor</span>
+              </label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <select
+                  className="filter-select"
+                  value={selectedAuditor}
+                  onChange={e => { setSelectedAuditor(e.target.value); setCurrentPage(1); }}
+                  style={{ flex: 1, minWidth: 0 }}
+                >
+                  <option value="ALL">All Auditors ({auditorOptions.length})</option>
+                  {auditorOptions.map(a => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(1)}
+                  className="btn btn-primary btn-sm"
+                  style={{ height: 38, padding: '0 12px' }}
+                >
+                  <Search size={13} />
+                  <span>Search</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: 5 }}>
+                <Calendar size={13} color="#059669" />
+                <span>Date Range (Beginning Date — Ending Date)</span>
+              </label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={beginningDate}
+                  onChange={e => { setBeginningDate(e.target.value); setCurrentPage(1); }}
+                  title="Beginning Date"
+                  style={{ flex: '1 1 130px', height: 38, padding: '6px 10px' }}
+                />
+                <input
+                  type="date"
+                  className="form-input"
+                  value={endingDate}
+                  min={beginningDate || undefined}
+                  onChange={e => { setEndingDate(e.target.value); setCurrentPage(1); }}
+                  title="Ending Date"
+                  style={{ flex: '1 1 130px', height: 38, padding: '6px 10px' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(1)}
+                  className="btn btn-primary btn-sm"
+                  style={{ height: 38, padding: '0 12px' }}
+                >
+                  <Search size={13} />
+                  <span>Search</span>
+                </button>
+                {hasFilters && (
+                  <button
+                    type="button"
+                    onClick={resetAllFilters}
+                    className="btn btn-outline btn-sm"
+                    style={{ height: 38 }}
+                  >
+                    <X size={13} />
+                    <span>Reset</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -344,15 +623,20 @@ export default function AuditsPage({ fixedCategory }) {
                       <div style={{ fontSize: '12.5px', fontWeight: 500, color: '#334155' }}>{audit.franchisee}</div>
                     </td>
                     <td>
-                      <div className="tabular-nums" style={{ fontSize: '12.5px', fontWeight: 600, color: '#0f172a' }}>{audit.auditDate}</div>
-                      <div className="tabular-nums" style={{ fontSize: '11.5px', color: '#64748b' }}>{audit.timeIn} - {audit.timeOut}</div>
+                      <div className="tabular-nums" style={{ fontSize: '12.5px', fontWeight: 600, color: '#0f172a' }}>
+                        {audit.auditDate}
+                        {audit.endDate && audit.endDate !== audit.auditDate ? ` – ${audit.endDate}` : ''}
+                      </div>
+                      <div className="tabular-nums" style={{ fontSize: '11.5px', color: '#64748b' }}>
+                        {audit.timeIn} - {audit.timeOut}
+                      </div>
                     </td>
                     <td>
                       <div className="dash-score-pill">
                         <span style={{
                           fontWeight: 800,
                           fontSize: '13px',
-                          color: audit.score >= 85 ? '#059669' : audit.score >= 70 ? '#d97706' : '#dc2626'
+                          color: audit.score >= 85 ? '#059669' : audit.score >= 70 ? '#d97706' : '#dc2626',
                         }}>
                           {audit.score}%
                         </span>
@@ -360,7 +644,7 @@ export default function AuditsPage({ fixedCategory }) {
                           <div style={{
                             width: `${Math.min(100, audit.score || 0)}%`,
                             height: '100%',
-                            background: audit.score >= 85 ? '#059669' : audit.score >= 70 ? '#f59e0b' : '#dc2626'
+                            background: audit.score >= 85 ? '#059669' : audit.score >= 70 ? '#f59e0b' : '#dc2626',
                           }} />
                         </div>
                       </div>
@@ -373,33 +657,33 @@ export default function AuditsPage({ fixedCategory }) {
                             label: 'Inspect Audit Dossier',
                             icon: Eye,
                             color: '#059669',
-                            onClick: () => setSelectedAudit(audit)
+                            onClick: () => setSelectedAudit(audit),
                           },
                           {
                             label: 'Approve & Issue Pass',
                             icon: CheckCircle2,
                             color: '#059669',
-                            onClick: () => updateAuditCategory(audit.id, 'Passed')
+                            onClick: () => updateAuditCategory(audit.id, 'Passed'),
                           },
                           {
                             label: 'Move to Review List',
                             icon: Clock,
                             color: '#d97706',
-                            onClick: () => updateAuditCategory(audit.id, 'Review List')
+                            onClick: () => updateAuditCategory(audit.id, 'Review List'),
                           },
                           {
                             label: 'Flag Other Fail (NC)',
                             icon: AlertTriangle,
                             color: '#ea580c',
-                            onClick: () => updateAuditCategory(audit.id, 'Other Fail')
+                            onClick: () => updateAuditCategory(audit.id, 'Other Fail'),
                           },
                           { divider: true },
                           {
                             label: 'Escalate Critical L3',
                             icon: AlertOctagon,
                             danger: true,
-                            onClick: () => updateAuditCategory(audit.id, 'L3 Critical Fail')
-                          }
+                            onClick: () => updateAuditCategory(audit.id, 'L3 Critical Fail'),
+                          },
                         ]}
                       />
                     </td>

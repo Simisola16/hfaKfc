@@ -148,7 +148,7 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <h2 style={{ fontSize: '14.5px', fontWeight: 800, color: '#ffffff', lineHeight: 1.2, margin: 0, letterSpacing: '-0.01em' }}>
-                HFA × KFC UK
+                HFA KFC UK
               </h2>
               <span style={{
                 fontSize: '9px',
@@ -376,7 +376,7 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
                 {currentUser.fullName || currentUser.username}
               </div>
               <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {currentUser.role || 'Operations Manager'}
+                {currentUser.role || 'IT Manager'}
               </div>
             </div>
           </div>
