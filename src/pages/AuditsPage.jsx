@@ -3,9 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useKfc } from '../context/KfcContext';
 import {
   ClipboardCheck, Clock, CheckCircle2, AlertTriangle, AlertOctagon,
-  Search, Plus, Eye, Download, TrendingUp, X, Layers, Building2, Store, UserCheck, Calendar
+  Search, Plus, Eye, Pencil, Trash2, Download, TrendingUp, X, Layers, Building2, Store, UserCheck, Calendar
 } from 'lucide-react';
 import AuditDetailModal from '../components/AuditDetailModal';
+import EditAuditModal from '../components/EditAuditModal';
 import NewAuditModal from '../components/NewAuditModal';
 import Pagination from '../components/Pagination';
 import ActionMenu from '../components/ActionMenu';
@@ -33,7 +34,7 @@ function parseAuditDate(str) {
 export default function AuditsPage({ fixedCategory }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { audits, stores, franchisees, users, updateAuditCategory } = useKfc();
+  const { audits, stores, franchisees, users, updateAuditCategory, deleteAudit } = useKfc();
 
   const getCategoryFromPath = () => {
     if (fixedCategory) return fixedCategory;
@@ -58,7 +59,10 @@ export default function AuditsPage({ fixedCategory }) {
   const [pageSize, setPageSize] = useState(15);
 
   const [selectedAudit, setSelectedAudit] = useState(null);
+  const [editingAudit, setEditingAudit] = useState(null);
+  const [deletingAudit, setDeletingAudit] = useState(null);
   const [isNewAuditOpen, setIsNewAuditOpen] = useState(false);
+  const isRecommendForPass = activeCategory === 'Recommend For Pass';
 
   useEffect(() => {
     setActiveCategory(getCategoryFromPath());
@@ -674,39 +678,63 @@ export default function AuditsPage({ fixedCategory }) {
                     <td>{getStatusBadge(audit.category)}</td>
                     <td style={{ textAlign: 'right' }}>
                       <ActionMenu
-                        items={[
-                          {
-                            label: 'Inspect Audit Dossier',
-                            icon: Eye,
-                            color: '#059669',
-                            onClick: () => setSelectedAudit(audit),
-                          },
-                          {
-                            label: 'Approve & Issue Pass',
-                            icon: CheckCircle2,
-                            color: '#059669',
-                            onClick: () => updateAuditCategory(audit.id, 'Passed'),
-                          },
-                          {
-                            label: 'Move to Review List',
-                            icon: Clock,
-                            color: '#d97706',
-                            onClick: () => updateAuditCategory(audit.id, 'Review List'),
-                          },
-                          {
-                            label: 'Flag Other Fail (NC)',
-                            icon: AlertTriangle,
-                            color: '#ea580c',
-                            onClick: () => updateAuditCategory(audit.id, 'Other Fail'),
-                          },
-                          { divider: true },
-                          {
-                            label: 'Escalate Critical L3',
-                            icon: AlertOctagon,
-                            danger: true,
-                            onClick: () => updateAuditCategory(audit.id, 'L3 Critical Fail'),
-                          },
-                        ]}
+                        items={
+                          isRecommendForPass
+                            ? [
+                                {
+                                  label: 'View',
+                                  icon: Eye,
+                                  color: '#059669',
+                                  onClick: () => setSelectedAudit(audit),
+                                },
+                                {
+                                  label: 'Edit',
+                                  icon: Pencil,
+                                  color: '#2563eb',
+                                  onClick: () => setEditingAudit(audit),
+                                },
+                                { divider: true },
+                                {
+                                  label: 'Delete',
+                                  icon: Trash2,
+                                  danger: true,
+                                  onClick: () => setDeletingAudit(audit),
+                                },
+                              ]
+                            : [
+                                {
+                                  label: 'Inspect Audit Dossier',
+                                  icon: Eye,
+                                  color: '#059669',
+                                  onClick: () => setSelectedAudit(audit),
+                                },
+                                {
+                                  label: 'Approve & Issue Pass',
+                                  icon: CheckCircle2,
+                                  color: '#059669',
+                                  onClick: () => updateAuditCategory(audit.id, 'Passed'),
+                                },
+                                {
+                                  label: 'Move to Review List',
+                                  icon: Clock,
+                                  color: '#d97706',
+                                  onClick: () => updateAuditCategory(audit.id, 'Review List'),
+                                },
+                                {
+                                  label: 'Flag Other Fail (NC)',
+                                  icon: AlertTriangle,
+                                  color: '#ea580c',
+                                  onClick: () => updateAuditCategory(audit.id, 'Other Fail'),
+                                },
+                                { divider: true },
+                                {
+                                  label: 'Escalate Critical L3',
+                                  icon: AlertOctagon,
+                                  danger: true,
+                                  onClick: () => updateAuditCategory(audit.id, 'L3 Critical Fail'),
+                                },
+                              ]
+                        }
                       />
                     </td>
                   </tr>
@@ -731,6 +759,85 @@ export default function AuditsPage({ fixedCategory }) {
           audit={selectedAudit}
           onClose={() => setSelectedAudit(null)}
         />
+      )}
+
+      {editingAudit && (
+        <EditAuditModal
+          audit={editingAudit}
+          onClose={() => setEditingAudit(null)}
+        />
+      )}
+
+      {deletingAudit && (
+        <div className="modal-backdrop" onClick={() => setDeletingAudit(null)}>
+          <div
+            className="modal-content"
+            style={{ maxWidth: 440 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <Trash2 size={18} />
+                </div>
+                <div>
+                  <h3 className="card-title" style={{ margin: 0 }}>Delete Audit</h3>
+                  <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0' }}>
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setDeletingAudit(null)} className="btn btn-ghost btn-sm">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p style={{ margin: 0, fontSize: '13.5px', color: '#334155', lineHeight: 1.55 }}>
+                Are you sure you want to permanently delete the audit for{' '}
+                <strong style={{ color: '#0f172a' }}>{deletingAudit.storeName}</strong>{' '}
+                ({deletingAudit.branchCode}) recorded on{' '}
+                <strong style={{ color: '#0f172a' }}>{deletingAudit.auditDate}</strong>?
+              </p>
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" onClick={() => setDeletingAudit(null)} className="btn btn-outline">
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  background: '#dc2626',
+                  color: '#ffffff',
+                  border: '1px solid #dc2626',
+                }}
+                onClick={async () => {
+                  const idToRemove = deletingAudit.id;
+                  await deleteAudit(idToRemove);
+                  if (selectedAudit && String(selectedAudit.id) === String(idToRemove)) {
+                    setSelectedAudit(null);
+                  }
+                  setDeletingAudit(null);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <NewAuditModal

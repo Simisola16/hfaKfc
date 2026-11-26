@@ -399,6 +399,75 @@ export function KfcProvider({ children }) {
     toast.success(`Audit status updated to "${newCategory}"`);
   };
 
+  const updateAudit = async (id, updates) => {
+    let mergedAudit = null;
+    setAudits(prev => prev.map(a => {
+      if (String(a.id) === String(id)) {
+        mergedAudit = {
+          ...a,
+          ...updates,
+          complianceSummary: updates.complianceSummary
+            ? { ...(a.complianceSummary || {}), ...updates.complianceSummary }
+            : a.complianceSummary,
+        };
+        return mergedAudit;
+      }
+      return a;
+    }));
+
+    if (mergedAudit && updates.category) {
+      setStores(prev => prev.map(s => {
+        if (s.branchCode === mergedAudit.branchCode || s.name === mergedAudit.storeName) {
+          return {
+            ...s,
+            lastAuditDate: mergedAudit.auditDate || s.lastAuditDate,
+            halalCertified: updates.category === 'Passed',
+            status: updates.category === 'Passed' ? 'Passed' :
+                    updates.category === 'L3 Critical Fail' ? 'Action Required' : 'Under Review'
+          };
+        }
+        return s;
+      }));
+    }
+
+    const payload = mergedAudit
+      ? {
+          storeId: mergedAudit.storeId,
+          storeName: mergedAudit.storeName,
+          branchCode: mergedAudit.branchCode,
+          address: mergedAudit.address,
+          postcode: mergedAudit.postcode,
+          franchisee: mergedAudit.franchisee,
+          auditor: mergedAudit.auditor,
+          session: mergedAudit.session,
+          auditDate: mergedAudit.auditDate,
+          endDate: mergedAudit.endDate,
+          timeIn: mergedAudit.timeIn,
+          timeOut: mergedAudit.timeOut,
+          score: mergedAudit.score,
+          category: mergedAudit.category,
+          storeRepresentative: mergedAudit.storeRepresentative,
+          complianceSummary: mergedAudit.complianceSummary,
+        }
+      : updates;
+
+    const res = await api.updateAudit(id, payload);
+    if (res?.data?._id || res?.data?.id) {
+      const realId = String(res.data._id || res.data.id);
+      setAudits(prev => prev.map(a => String(a.id) === String(id) ? { ...res.data, id: realId } : a));
+    }
+
+    toast.success(`Audit updated for "${mergedAudit?.storeName || updates.storeName || 'store'}"`);
+    return mergedAudit;
+  };
+
+  const deleteAudit = async (id) => {
+    const target = audits.find(a => String(a.id) === String(id));
+    setAudits(prev => prev.filter(a => String(a.id) !== String(id)));
+    await api.deleteAudit(id);
+    toast.success(`Audit deleted${target?.storeName ? ` for "${target.storeName}"` : ''}`);
+  };
+
   // 4. Products CRUD
   const addProduct = async (prodData) => {
     const payload = {
@@ -603,7 +672,9 @@ export function KfcProvider({ children }) {
       deleteStore,
       addFranchisee,
       addAudit,
+      updateAudit,
       updateAuditCategory,
+      deleteAudit,
       addProduct,
       addAssignment,
       updateAssignmentStatus,

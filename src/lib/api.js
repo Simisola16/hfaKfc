@@ -52,10 +52,15 @@ export const api = {
   },
   getAudit: (id) => fetchJson(`/audits/${id}`),
   createAudit: (data) => fetchJson('/audits', { method: 'POST', body: JSON.stringify(data) }),
+  updateAudit: (id, data) => fetchJson(`/audits/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data)
+  }),
   updateAuditCategory: (id, category) => fetchJson(`/audits/${id}/category`, {
     method: 'PATCH',
     body: JSON.stringify({ category })
   }),
+  deleteAudit: (id) => fetchJson(`/audits/${id}`, { method: 'DELETE' }),
 
   // Products
   getProducts: (params = {}) => {
