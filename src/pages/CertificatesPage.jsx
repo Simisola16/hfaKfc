@@ -74,7 +74,7 @@ export default function CertificatesPage() {
       {/* 2-Column Workspace: Left Branch Picker + Right Live Certificate */}
       <div className="cert-workspace-grid">
         {/* Left Branch Selector Rail */}
-        <div className="page-surface no-print" style={{ display: 'flex', flexDirection: 'column', maxHeight: '760px' }}>
+        <div className="page-surface no-print cert-picker-rail" style={{ display: 'flex', flexDirection: 'column', maxHeight: '760px' }}>
           <div style={{ padding: '14px', borderBottom: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div className="segmented-tabs" style={{ width: '100%' }}>
               <button
@@ -364,7 +364,7 @@ export default function CertificatesPage() {
                 </div>
               </div>
 
-              <div style={{ width: 1, background: '#cbd5e1' }} />
+              <div className="cert-date-divider" style={{ width: 1, background: '#cbd5e1' }} />
 
               <div>
                 <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700 }}>

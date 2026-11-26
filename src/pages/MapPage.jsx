@@ -379,7 +379,7 @@ export default function MapPage() {
       {/* Filter & Map Layer Toolbar */}
       <div className="dash-card" style={{ padding: '14px 18px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: '1 1 420px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flex: '1 1 240px', minWidth: 0 }}>
             <div className="search-input-wrapper" style={{ flex: '1 1 220px', maxWidth: 320 }}>
               <Search className="search-icon" size={15} />
               <input
@@ -439,13 +439,7 @@ export default function MapPage() {
         <div className="page-surface" style={{ padding: '12px', display: 'flex', flexDirection: 'column' }}>
           <div
             ref={mapContainerRef}
-            style={{
-              height: '560px',
-              width: '100%',
-              borderRadius: '10px',
-              overflow: 'hidden',
-              border: '1px solid #e2e8f0'
-            }}
+            className="map-page-canvas"
           />
 
           <div style={{

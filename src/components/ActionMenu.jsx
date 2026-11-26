@@ -18,7 +18,7 @@ export default function ActionMenu({ items = [], label = 'Actions' }) {
 
       setCoords({
         top: openUpward ? rect.top - 6 : rect.bottom + 6,
-        left: Math.max(12, rect.right - 210),
+        left: Math.min(Math.max(12, rect.right - 210), Math.max(12, window.innerWidth - 222)),
         openUpward
       });
     }

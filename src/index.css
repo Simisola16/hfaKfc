@@ -2190,3 +2190,336 @@ button, input, select, textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ==========================================================================
+   11. MOBILE & RESPONSIVE ENHANCEMENTS
+   ========================================================================== */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.app-layout,
+.main-wrapper,
+.main-content,
+.page-shell,
+.dashv2-shell,
+.page-surface {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.segmented-tabs,
+.tabs-container,
+.data-table-wrap,
+.dashv2-panel,
+.page-surface > div {
+  -webkit-overflow-scrolling: touch;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.topbar-mobile-search-btn {
+  display: none;
+}
+
+.topbar-mobile-search-bar {
+  position: fixed;
+  top: var(--topbar-h);
+  left: 0;
+  right: 0;
+  padding: 10px 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 12px 30px -10px rgba(15, 23, 42, 0.14);
+  z-index: 950;
+}
+
+.topbar-mobile-search-bar .topbar-search-dropdown {
+  position: static;
+  width: 100%;
+  margin-top: 8px;
+  max-height: 55vh;
+  box-shadow: none;
+}
+
+.topbar-notif-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 370px;
+  max-height: 460px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 16px 40px -10px rgba(15, 23, 42, 0.16);
+  border: 1px solid #e2e8f0;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.topbar-audit-short {
+  display: none;
+}
+
+.topbar-user-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-left: 10px;
+  border-left: 1px solid #e2e8f0;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 18px;
+  border-top: 1px solid #f1f5f9;
+  background: #ffffff;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-family: inherit;
+}
+
+.pagination-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12.5px;
+  color: #64748b;
+  flex-wrap: wrap;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.map-page-canvas {
+  position: relative;
+  isolation: isolate;
+  height: 560px;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    max-width: 85vw;
+  }
+  .map-page-canvas {
+    height: 380px;
+  }
+  .cert-picker-rail {
+    max-height: 280px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .topbar-mobile-search-btn {
+    display: inline-flex;
+  }
+  .topbar-search-dropdown {
+    width: calc(100vw - 24px);
+    max-width: 420px;
+  }
+  .dash-header {
+    gap: 12px;
+  }
+  .dash-controls {
+    width: 100%;
+  }
+  .surface-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .surface-toolbar .search-input-wrapper,
+  .surface-toolbar .filter-select {
+    width: 100%;
+    max-width: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    height: 58px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .topbar-mobile-search-bar {
+    top: 58px;
+  }
+  .topbar-actions {
+    gap: 6px;
+  }
+  .topbar-slash {
+    display: none;
+  }
+  .topbar-audit-full {
+    display: none;
+  }
+  .topbar-audit-short {
+    display: inline;
+  }
+  .topbar-notif-dropdown {
+    position: fixed !important;
+    top: 60px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-height: 75vh !important;
+  }
+  .topbar-user-chip {
+    padding-left: 4px;
+    border-left: none;
+  }
+
+  .dash-title {
+    font-size: 19px;
+  }
+  .dashv2-hero {
+    padding: 16px 14px;
+    gap: 16px;
+  }
+  .dashv2-hero-title {
+    font-size: 20px;
+  }
+  .dashv2-gauge-box {
+    margin: 0 auto;
+  }
+  .dashv2-micro-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .dashv2-panel-head {
+    padding: 14px;
+  }
+  .dashv2-panel-body {
+    padding: 14px;
+  }
+  .dashv2-map-wrap {
+    height: 270px;
+  }
+  .dashv2-map-legend {
+    font-size: 10px;
+    gap: 8px;
+    padding: 5px 9px;
+    left: 8px;
+    bottom: 8px;
+    right: 48px;
+  }
+  .dashv2-store-dock {
+    padding: 12px 14px;
+  }
+  .dashv2-ledger-controls {
+    width: 100%;
+  }
+  .dashv2-quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea,
+  .form-control,
+  .search-input,
+  .filter-select {
+    font-size: 15px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 10px 12px;
+    font-size: 12.5px;
+  }
+  .dash-queue-item {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pagination-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px;
+  }
+  .pagination-meta {
+    justify-content: space-between;
+  }
+  .pagination-controls {
+    justify-content: center;
+  }
+  .pagination-controls button {
+    min-width: 34px !important;
+    height: 34px !important;
+  }
+
+  .modal-backdrop,
+  .modal-overlay {
+    padding: 10px;
+    align-items: flex-end;
+  }
+  .modal-content,
+  .modal {
+    border-radius: 16px 16px 12px 12px;
+    max-height: 92vh;
+  }
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 14px 16px;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .auth-wrapper {
+    padding: 12px;
+  }
+  .auth-card {
+    min-height: auto;
+    border-radius: 16px;
+  }
+  .auth-sidebar,
+  .auth-main {
+    padding: 24px 18px;
+  }
+
+  .map-page-canvas {
+    height: 300px;
+  }
+  .audit-filter-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .cert-document {
+    border-width: 6px !important;
+    padding: 18px 14px !important;
+  }
+  .cert-date-divider {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar-reset-btn {
+    display: none;
+  }
+  .dashv2-quick-grid {
+    grid-template-columns: 1fr;
+  }
+  .audit-session-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

@@ -1118,8 +1118,8 @@ export default function DashboardPage() {
                 <p className="dashv2-panel-sub">Click any row to open the full 36-point compliance dossier</p>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <div className="search-input-wrapper" style={{ width: 195 }}>
+              <div className="dashv2-ledger-controls" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div className="search-input-wrapper" style={{ flex: '1 1 180px', minWidth: 0 }}>
                   <Search className="search-icon" size={14} />
                   <input
                     type="text"

@@ -384,7 +384,7 @@ export default function AuditsPage({ fixedCategory }) {
                 <Layers size={13} color="#059669" />
                 <span>Session (Round &amp; Year)</span>
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div className="audit-session-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <select
                   className="filter-select"
                   value={selectedRound}
@@ -429,12 +429,15 @@ export default function AuditsPage({ fixedCategory }) {
           </div>
 
           {/* Row 2: Franchisee + Store */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: 12,
-            alignItems: 'end',
-          }}>
+          <div
+            className="audit-filter-grid-2"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: 12,
+              alignItems: 'end',
+            }}
+          >
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: 5 }}>
                 <Building2 size={13} color="#059669" />
@@ -497,12 +500,15 @@ export default function AuditsPage({ fixedCategory }) {
           </div>
 
           {/* Row 3: Auditor + Date Range (Beginning Date -> Ending Date) */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: 12,
-            alignItems: 'end',
-          }}>
+          <div
+            className="audit-filter-grid-2"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: 12,
+              alignItems: 'end',
+            }}
+          >
             <div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '11.5px', fontWeight: 700, color: '#334155', marginBottom: 5 }}>
                 <UserCheck size={13} color="#059669" />

@@ -58,21 +58,9 @@ export default function Pagination({
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '13px 18px',
-        borderTop: '1px solid #f1f5f9',
-        background: '#ffffff',
-        flexWrap: 'wrap',
-        gap: 12,
-        fontFamily: 'inherit'
-      }}
-    >
+    <div className="pagination-bar">
       {/* Left: Summary and Per Page Selector */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12.5, color: '#64748b' }}>
+      <div className="pagination-meta">
         <span className="tabular-nums">
           Showing <strong style={{ color: '#0f172a' }}>{startItem}</strong> to <strong style={{ color: '#0f172a' }}>{endItem}</strong> of{' '}
           <strong style={{ color: '#0f172a' }}>{activeTotal.toLocaleString()}</strong> {itemName}
@@ -90,7 +78,7 @@ export default function Pagination({
               }}
               disabled={disabled}
               style={{
-                padding: '4px 8px',
+                padding: '5px 8px',
                 borderRadius: 7,
                 border: '1px solid #e2e8f0',
                 fontSize: 12.5,
@@ -111,7 +99,7 @@ export default function Pagination({
       </div>
 
       {/* Right: Navigation Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div className="pagination-controls">
         <button
           type="button"
           onClick={() => onPageChange && onPageChange(1)}

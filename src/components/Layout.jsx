@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import NewStoreModal from './NewStoreModal';
 import NewAuditModal from './NewAuditModal';
 
 export default function Layout() {
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('kfc_sidebar_collapsed') === 'true';
   });
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth <= 1024 : false
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
@@ -23,13 +27,32 @@ export default function Layout() {
 
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth > 1024) {
+      const mobile = window.innerWidth <= 1024;
+      setIsMobileViewport(mobile);
+      if (!mobile) {
         setMobileOpen(false);
       }
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Auto-close mobile drawer when navigating routes
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  // Lock background scroll while mobile navigation drawer is open
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
+
+  const effectiveCollapsed = isMobileViewport ? false : collapsed;
 
   return (
     <div className="app-layout">
@@ -41,17 +64,17 @@ export default function Layout() {
       )}
 
       <Sidebar
-        collapsed={collapsed}
+        collapsed={effectiveCollapsed}
         onToggleCollapse={toggleCollapse}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
       />
 
-      <div className={`main-wrapper ${collapsed ? 'sidebar-is-collapsed' : ''}`}>
+      <div className={`main-wrapper ${effectiveCollapsed ? 'sidebar-is-collapsed' : ''}`}>
         <Topbar
           onNewStoreClick={() => setIsStoreModalOpen(true)}
           onNewAuditClick={() => setIsAuditModalOpen(true)}
-          onToggleMobileSidebar={() => setMobileOpen(!mobileOpen)}
+          onToggleMobileSidebar={() => setMobileOpen(prev => !prev)}
           mobileOpen={mobileOpen}
         />
         <main className="main-content">
