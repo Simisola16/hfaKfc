@@ -23,8 +23,8 @@ export const NAV_SECTIONS = [
         label: 'Stores & Franchisees',
         icon: Store,
         children: [
-          { path: '/stores', label: 'Store List', icon: Store, countKey: 'storesCount' },
           { path: '/franchisees', label: 'Franchisee List', icon: Building2, countKey: 'franchiseesCount' },
+          { path: '/stores', label: 'Store List', icon: Store, countKey: 'storesCount' },
           { path: '/map', label: 'Map', icon: MapPin },
         ]
       },
@@ -36,7 +36,7 @@ export const NAV_SECTIONS = [
     items: [
       {
         id: 'audits-group',
-        label: 'Audit List',
+        label: 'Audits',
         icon: ClipboardCheck,
         badgeKey: 'auditsAction',
         children: [
