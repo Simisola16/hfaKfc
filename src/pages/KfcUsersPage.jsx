@@ -106,9 +106,9 @@ export default function KfcUsersPage() {
     <div className="page-shell">
       <div className="dash-header">
         <div>
-          <h1 className="dash-title">KFC Headquarters Users</h1>
+          <h1 className="dash-title">Manage KFC Users</h1>
           <div className="dash-subtitle">
-            <span>Provision and control accounts authorized to sign in to the KFC Headquarters Portal</span>
+            <span>Manage KFC Headquarters user accounts</span>
           </div>
         </div>
 
@@ -120,7 +120,7 @@ export default function KfcUsersPage() {
             style={{ height: 36, padding: '0 14px' }}
           >
             <Plus size={15} />
-            <span>Add KFC User</span>
+            <span>New KFC User</span>
           </button>
         </div>
       </div>

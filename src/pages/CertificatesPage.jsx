@@ -52,9 +52,9 @@ export default function CertificatesPage() {
       {/* Executive Header - Hidden on Print */}
       <div className="dash-header no-print">
         <div>
-          <h1 className="dash-title">Halal Certificate Studio</h1>
+          <h1 className="dash-title">Certificate List</h1>
           <div className="dash-subtitle">
-            <span>{certifiedStores.length} certified UK KFC branches ready for official certificate issuance &amp; A4 print</span>
+            <span>{certifiedStores.length} certified KFC stores</span>
           </div>
         </div>
 
@@ -66,7 +66,7 @@ export default function CertificatesPage() {
             style={{ height: 36, padding: '0 16px' }}
           >
             <Printer size={15} />
-            <span>Print Official Certificate</span>
+            <span>Print Certificate</span>
           </button>
         </div>
       </div>

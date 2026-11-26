@@ -84,9 +84,9 @@ export default function LoginPage() {
             Halal Food Authority UK
           </div>
 
-          <h2>HFA KFC Admin Console</h2>
+          <h2>Halal Food Authority (KFC Admin)</h2>
           <p>
-            Enterprise assurance platform for Halal Food Authority certification officers, field auditors, and IT Managers overseeing KFC UK &amp; Ireland stores.
+            HFA staff portal for managing KFC stores, franchisees, products, and Halal audits.
           </p>
 
           <div style={{
@@ -132,8 +132,8 @@ export default function LoginPage() {
           </div>
 
           <div className="auth-header">
-            <h1>Sign In to Console</h1>
-            <p>Enter your HFA staff credentials to access audit &amp; certification tools</p>
+            <h1>Staff Login</h1>
+            <p>Enter your username and password to continue</p>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -212,7 +212,7 @@ export default function LoginPage() {
               disabled={loading}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
-              <span>{loading ? 'Authenticating...' : 'Sign In to Dashboard'}</span>
+              <span>{loading ? 'Signing in...' : 'Login'}</span>
               {!loading && <ArrowRight size={16} />}
             </button>
           </form>

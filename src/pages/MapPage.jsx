@@ -342,9 +342,9 @@ export default function MapPage() {
       {/* Executive Header */}
       <div className="dash-header">
         <div>
-          <h1 className="dash-title">UK Geographic Coverage &amp; GPS Telemetry</h1>
+          <h1 className="dash-title">Map</h1>
           <div className="dash-subtitle">
-            <span>{filteredStores.length} of {stores.length} stores mapped via UK ONS Postcode coordinates</span>
+            <span>{filteredStores.length} of {stores.length} stores mapped</span>
           </div>
         </div>
 
@@ -478,7 +478,7 @@ export default function MapPage() {
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Store Telemetry Profile
+                    Store Details
                   </div>
                   <h3 style={{ fontSize: '16.5px', fontWeight: 800, color: '#0f172a', marginTop: 2 }}>
                     {activeStore.name}

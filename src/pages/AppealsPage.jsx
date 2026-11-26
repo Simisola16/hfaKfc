@@ -66,16 +66,16 @@ export default function AppealsPage() {
       {/* Executive Header */}
       <div className="dash-header">
         <div>
-          <h1 className="dash-title">Auditor Appeals Hub</h1>
+          <h1 className="dash-title">Appeal List</h1>
           <div className="dash-subtitle">
-            <span>Formal compliance disputes filed by KFC franchise QA leads with documentary verification</span>
+            <span>Review and manage audit appeals</span>
           </div>
         </div>
 
         <div className="dash-controls">
           <button type="button" onClick={() => setIsModalOpen(true)} className="btn btn-kfc btn-sm" style={{ height: 36, padding: '0 14px' }}>
             <Plus size={15} />
-            <span>File Audit Appeal</span>
+            <span>New Appeal</span>
           </button>
         </div>
       </div>

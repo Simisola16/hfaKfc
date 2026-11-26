@@ -79,9 +79,9 @@ export default function ProductsPage() {
       {/* Executive Header */}
       <div className="dash-header">
         <div>
-          <h1 className="dash-title">Certified Products</h1>
+          <h1 className="dash-title">Product List</h1>
           <div className="dash-subtitle">
-            <span>Authorized poultry, breading, marinades, oils, and packaging verified for KFC UK kitchens</span>
+            <span>{products.length} approved products for KFC stores</span>
           </div>
         </div>
 
@@ -92,7 +92,7 @@ export default function ProductsPage() {
           </button>
           <button type="button" onClick={() => setIsModalOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
             <Plus size={15} />
-            <span>Register Certified Product</span>
+            <span>New Product</span>
           </button>
         </div>
       </div>
@@ -101,7 +101,7 @@ export default function ProductsPage() {
       <div className="dash-kpi-grid-3">
         <div className="dash-kpi-card">
           <div className="dash-kpi-top">
-            <span className="dash-kpi-label">Certified Products</span>
+            <span className="dash-kpi-label">Product List</span>
             <div className="dash-kpi-icon" style={{ background: '#ecfdf5', color: '#059669' }}>
               <Package size={18} />
             </div>
@@ -201,13 +201,13 @@ export default function ProductsPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Product Code</th>
-                <th>Product / Ingredient Name</th>
-                <th>Approved Supplier</th>
-                <th>Manufacturer Facility</th>
+                <th>Code</th>
+                <th>Product Name</th>
+                <th>Supplier(s)</th>
+                <th>Manufacturer</th>
                 <th>Site EC Code</th>
                 <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Specification</th>
+                <th style={{ textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>

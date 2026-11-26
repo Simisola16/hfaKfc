@@ -115,16 +115,16 @@ export default function RequestsPage() {
       {/* Executive Header */}
       <div className="dash-header">
         <div>
-          <h1 className="dash-title">Store &amp; Franchise Requests</h1>
+          <h1 className="dash-title">Request List</h1>
           <div className="dash-subtitle">
-            <span>Manage branch Halal conversions, new store openings, franchise updates, and ingredient clearances</span>
+            <span>Manage store, franchisee, and product requests</span>
           </div>
         </div>
 
         <div className="dash-controls">
           <button type="button" onClick={() => setIsModalOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
             <Plus size={15} />
-            <span>Submit New Request</span>
+            <span>New Request</span>
           </button>
         </div>
       </div>
@@ -198,7 +198,7 @@ export default function RequestsPage() {
             className={`segmented-tab ${activeTab === 'stores' ? 'active' : ''}`}
           >
             <Store size={14} color="#059669" />
-            <span>Store Requests</span>
+            <span>Request List (Store)</span>
             <span className="tabular-nums" style={{ fontSize: '11px', padding: '1px 6px', borderRadius: 6, background: activeTab === 'stores' ? '#f1f5f9' : 'rgba(15,23,42,0.06)' }}>
               {storeRequests.length}
             </span>
@@ -210,7 +210,7 @@ export default function RequestsPage() {
             className={`segmented-tab ${activeTab === 'franchise' ? 'active' : ''}`}
           >
             <Building2 size={14} color="#2563eb" />
-            <span>Franchise Requests</span>
+            <span>Request List (Franchisee)</span>
             <span className="tabular-nums" style={{ fontSize: '11px', padding: '1px 6px', borderRadius: 6, background: activeTab === 'franchise' ? '#f1f5f9' : 'rgba(15,23,42,0.06)' }}>
               {franchiseRequests.length}
             </span>
@@ -222,7 +222,7 @@ export default function RequestsPage() {
             className={`segmented-tab ${activeTab === 'products' ? 'active' : ''}`}
           >
             <Package size={14} color="#d97706" />
-            <span>Product Clearances</span>
+            <span>Request List (Products)</span>
             <span className="tabular-nums" style={{ fontSize: '11px', padding: '1px 6px', borderRadius: 6, background: activeTab === 'products' ? '#f1f5f9' : 'rgba(15,23,42,0.06)' }}>
               {productRequests.length}
             </span>

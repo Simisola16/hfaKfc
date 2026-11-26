@@ -10,56 +10,56 @@ import {
 
 export const NAV_SECTIONS = [
   {
-    section: 'EXECUTIVE OVERVIEW',
+    section: 'OVERVIEW',
     items: [
       { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     ]
   },
   {
-    section: 'RESTAURANT NETWORK',
+    section: 'STORES & PRODUCTS',
     items: [
       {
         id: 'network-group',
-        label: 'Stores & Network',
+        label: 'Stores & Franchisees',
         icon: Store,
         children: [
-          { path: '/stores', label: 'All KFC Stores', icon: Store, countKey: 'storesCount' },
-          { path: '/franchisees', label: 'Franchise', icon: Building2, countKey: 'franchiseesCount' },
-          { path: '/map', label: 'Interactive UK Map', icon: MapPin },
+          { path: '/stores', label: 'Store List', icon: Store, countKey: 'storesCount' },
+          { path: '/franchisees', label: 'Franchisee List', icon: Building2, countKey: 'franchiseesCount' },
+          { path: '/map', label: 'Map', icon: MapPin },
         ]
       },
-      { id: 'products', path: '/products', label: 'Certified Products', icon: Package, countKey: 'productsCount' },
+      { id: 'products', path: '/products', label: 'Product List', icon: Package, countKey: 'productsCount' },
     ]
   },
   {
-    section: 'CERTIFICATION & AUDITING',
+    section: 'AUDITS',
     items: [
       {
         id: 'audits-group',
-        label: 'Halal Audits Pipeline',
+        label: 'Audit List',
         icon: ClipboardCheck,
         badgeKey: 'auditsAction',
         children: [
-          { path: '/audits', label: 'Master Audit Registry', icon: ClipboardCheck, end: true },
+          { path: '/audits', label: 'Audit List', icon: ClipboardCheck, end: true },
           { path: '/audits/recommend-pass', label: 'Recommend For Pass', icon: Clock, subBadgeKey: 'rfp' },
           { path: '/audits/review', label: 'Review List', icon: AlertTriangle, subBadgeKey: 'review' },
-          { path: '/audits/passed', label: 'Passed & Certified', icon: CheckCircle2 },
-          { path: '/audits/other-fail', label: 'Other Fail (Minor NC)', icon: AlertTriangle, subBadgeKey: 'otherFail' },
-          { path: '/audits/critical-fail', label: 'L3 Critical Fail', icon: AlertOctagon, subBadgeKey: 'l3' },
+          { path: '/audits/passed', label: 'Passed Audits', icon: CheckCircle2 },
+          { path: '/audits/other-fail', label: 'Other Fail', icon: AlertTriangle, subBadgeKey: 'otherFail' },
+          { path: '/audits/critical-fail', label: 'L3 Fail Audits', icon: AlertOctagon, subBadgeKey: 'l3' },
         ]
       },
-      { id: 'assignments', path: '/assignments', label: 'Audit Assignments', icon: Calendar },
-      { id: 'certificates', path: '/certificates', label: 'Certificate Studio', icon: Award },
+      { id: 'assignments', path: '/assignments', label: 'Assign List', icon: Calendar },
+      { id: 'certificates', path: '/certificates', label: 'Certificate List', icon: Award },
     ]
   },
   {
-    section: 'WORKFLOWS & GOVERNANCE',
+    section: 'REQUESTS & USERS',
     items: [
-      { id: 'requests', path: '/requests', label: 'Store & Franchise Requests', icon: Inbox, badgeKey: 'requests' },
-      { id: 'appeals', path: '/appeals', label: 'Auditor Appeals Hub', icon: ShieldAlert, badgeKey: 'appeals' },
-      { id: 'feedback', path: '/feedback', label: 'Restaurant Feedback', icon: MessageSquare },
-      { id: 'users', path: '/users', label: 'Portal Access & Staff', icon: Users },
-      { id: 'kfc-users', path: '/kfc-users', label: 'KFC Users (HQ)', icon: Building2 },
+      { id: 'requests', path: '/requests', label: 'Request List', icon: Inbox, badgeKey: 'requests' },
+      { id: 'appeals', path: '/appeals', label: 'Appeal List', icon: ShieldAlert, badgeKey: 'appeals' },
+      { id: 'feedback', path: '/feedback', label: 'Feedback List', icon: MessageSquare },
+      { id: 'users', path: '/users', label: 'Manage Users', icon: Users },
+      { id: 'kfc-users', path: '/kfc-users', label: 'Manage KFC Users', icon: Building2 },
     ]
   },
 ];
@@ -385,7 +385,7 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
 
         <button
           onClick={handleLogout}
-          title={collapsed ? 'Sign Out' : undefined}
+          title={collapsed ? 'Logout' : undefined}
           style={{
             width: '100%',
             display: 'flex',
@@ -414,7 +414,7 @@ export default function Sidebar({ collapsed = false, onToggleCollapse, mobileOpe
           }}
         >
           <LogOut size={15} />
-          {!collapsed && <span>Sign Out</span>}
+          {!collapsed && <span>Logout</span>}
         </button>
       </div>
     </aside>

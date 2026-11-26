@@ -439,8 +439,8 @@ export default function Topbar({ onNewAuditClick, onNewStoreClick, onToggleMobil
             style={{ fontSize: '12px', height: 36, padding: '0 12px' }}
           >
             <Plus size={14} />
-            <span className="topbar-audit-full">Conduct Audit</span>
-            <span className="topbar-audit-short">Audit</span>
+            <span className="topbar-audit-full">Assign</span>
+            <span className="topbar-audit-short">Assign</span>
           </button>
         )}
 

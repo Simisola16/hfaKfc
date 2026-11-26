@@ -79,16 +79,16 @@ export default function AssignmentsPage() {
       {/* Executive Header */}
       <div className="dash-header">
         <div>
-          <h1 className="dash-title">Audit Scheduling &amp; Assignments</h1>
+          <h1 className="dash-title">Assign List</h1>
           <div className="dash-subtitle">
-            <span>Deploy field auditors to UK KFC branches and track inspection completion across rounds</span>
+            <span>Manage auditor store assignments</span>
           </div>
         </div>
 
         <div className="dash-controls">
           <button type="button" onClick={() => setIsModalOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
             <Plus size={15} />
-            <span>Schedule Assignment</span>
+            <span>New Assignment</span>
           </button>
         </div>
       </div>

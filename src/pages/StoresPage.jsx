@@ -120,9 +120,9 @@ export default function StoresPage() {
       {/* Executive Page Header */}
       <div className="dash-header">
         <div>
-          <h1 className="dash-title">KFC Store Directory</h1>
+          <h1 className="dash-title">Store List</h1>
           <div className="dash-subtitle">
-            <span>Master registry of {stores.length} UK certified KFC restaurants across {franchisees.length} Franchise</span>
+            <span>{stores.length} stores across {franchisees.length} franchisees</span>
           </div>
         </div>
 
@@ -133,7 +133,7 @@ export default function StoresPage() {
           </button>
           <button type="button" onClick={() => setIsAddStoreOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
             <Plus size={15} />
-            <span>Register Store</span>
+            <span>New Store</span>
           </button>
         </div>
       </div>
@@ -145,7 +145,7 @@ export default function StoresPage() {
           onClick={() => { setSelectedStatus('ALL'); setCurrentPage(1); }}
         >
           <div className="dash-kpi-top">
-            <span className="dash-kpi-label">Total UK KFC Stores</span>
+            <span className="dash-kpi-label">Store List</span>
             <div className="dash-kpi-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>
               <Store size={18} />
             </div>
@@ -297,12 +297,12 @@ export default function StoresPage() {
             <thead>
               <tr>
                 <th>Branch Code</th>
-                <th>Store / Contact</th>
-                <th>Address &amp; Postcode</th>
-                <th>Franchise Partner</th>
-                <th>Compliance Status</th>
-                <th>Last Inspected</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th>Store Name</th>
+                <th>Address &amp; Post Code</th>
+                <th>Franchisee</th>
+                <th>Status</th>
+                <th>Last Audit</th>
+                <th style={{ textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -346,25 +346,25 @@ export default function StoresPage() {
                       <ActionMenu
                         items={[
                           {
-                            label: 'Conduct Halal Audit',
-                            icon: ClipboardCheck,
+                            label: 'Assign',
+                            icon: Plus,
                             color: '#e4002b',
                             onClick: () => setAuditStoreId(store.id)
                           },
                           {
-                            label: 'View / Print Certificate',
+                            label: 'Certificate List',
                             icon: Award,
                             color: '#059669',
                             onClick: () => navigate(`/certificates?storeId=${encodeURIComponent(store.id)}`)
                           },
                           {
-                            label: 'Edit Store Details',
+                            label: 'Edit Store',
                             icon: Edit,
                             color: '#2563eb',
                             onClick: () => setEditingStore({ ...store })
                           },
                           {
-                            label: 'Locate on UK Map',
+                            label: 'Map',
                             icon: MapPin,
                             color: '#059669',
                             onClick: () => navigate('/map')

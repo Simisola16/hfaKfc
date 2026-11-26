@@ -103,9 +103,9 @@ export default function FranchiseesPage() {
       {/* Executive Page Header */}
       <div className="dash-header">
         <div>
-          <h1 className="dash-title">Franchise</h1>
+          <h1 className="dash-title">Franchisee List</h1>
           <div className="dash-subtitle">
-            <span>Authorized UK &amp; Ireland KFC corporate franchise groups operating certified branches</span>
+            <span>{franchisees.length} KFC franchisee accounts</span>
           </div>
         </div>
 
@@ -116,7 +116,7 @@ export default function FranchiseesPage() {
           </button>
           <button type="button" onClick={() => setIsModalOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
             <Plus size={15} />
-            <span>Register Partner</span>
+            <span>New Franchisee</span>
           </button>
         </div>
       </div>
@@ -316,7 +316,7 @@ export default function FranchiseesPage() {
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Building2 size={19} color="#059669" />
-                <h3 className="card-title">Register New KFC Franchise Partner</h3>
+                <h3 className="card-title">New Franchisee</h3>
               </div>
               <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-ghost btn-sm">
                 <X size={18} />

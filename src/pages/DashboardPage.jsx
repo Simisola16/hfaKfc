@@ -583,7 +583,7 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <h1 className="dashv2-hero-title">KFC UK Dashboard</h1>
+          <h1 className="dashv2-hero-title">Dashboard</h1>
           <p className="dashv2-hero-sub">
             <strong className="tabular-nums" style={{ color: '#ffffff' }}>{totalStores}</strong> stores •{' '}
             <strong className="tabular-nums" style={{ color: '#ffffff' }}>{franchisees.length}</strong> franchisees •{' '}
@@ -614,7 +614,7 @@ export default function DashboardPage() {
                 className="dashv2-btn-emerald"
               >
                 <Plus size={14} />
-                <span>Conduct Audit</span>
+                <span>Assign</span>
               </button>
             )}
           </div>
@@ -658,7 +658,7 @@ export default function DashboardPage() {
           <div className="dashv2-micro-grid">
             <button type="button" onClick={() => navigate('/stores')} className="dashv2-micro-tile">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>Certified Stores</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>Store List</span>
                 <Store size={14} color="#34d399" />
               </div>
               <div className="tabular-nums" style={{ fontSize: '19px', fontWeight: 800, color: '#ffffff', lineHeight: 1.1 }}>
@@ -666,13 +666,13 @@ export default function DashboardPage() {
                 <span style={{ fontSize: '12px', fontWeight: 500, color: '#94a3b8' }}> / {totalStores}</span>
               </div>
               <span className="tabular-nums" style={{ fontSize: '11px', color: '#6ee7b7', fontWeight: 600 }}>
-                {certifiedPct}% network compliant
+                {certifiedPct}% certified
               </span>
             </button>
 
             <button type="button" onClick={() => setShowActionModal(true)} className="dashv2-micro-tile">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>Open Sign-Offs</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>Pending Actions</span>
                 <Clock size={14} color="#fbbf24" />
               </div>
               <div className="tabular-nums" style={{ fontSize: '19px', fontWeight: 800, color: '#ffffff', lineHeight: 1.1 }}>
@@ -686,7 +686,7 @@ export default function DashboardPage() {
 
             <button type="button" onClick={() => navigate('/assignments')} className="dashv2-micro-tile">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>Active Assignments</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>Assign List</span>
                 <CalendarCheck size={14} color="#60a5fa" />
               </div>
               <div className="tabular-nums" style={{ fontSize: '19px', fontWeight: 800, color: '#ffffff', lineHeight: 1.1 }}>
@@ -694,21 +694,21 @@ export default function DashboardPage() {
                 <span style={{ fontSize: '12px', fontWeight: 500, color: '#94a3b8' }}> live</span>
               </div>
               <span className="tabular-nums" style={{ fontSize: '11px', color: '#bfdbfe', fontWeight: 600 }}>
-                of {assignments.length} scheduled
+                of {assignments.length} assigned
               </span>
             </button>
 
             <button type="button" onClick={() => navigate('/products')} className="dashv2-micro-tile">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>Certified Products</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>Product List</span>
                 <Package size={14} color="#a7f3d0" />
               </div>
               <div className="tabular-nums" style={{ fontSize: '19px', fontWeight: 800, color: '#ffffff', lineHeight: 1.1 }}>
                 {products.length}
-                <span style={{ fontSize: '12px', fontWeight: 500, color: '#94a3b8' }}> SKUs</span>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: '#94a3b8' }}> products</span>
               </div>
               <span className="tabular-nums" style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: 600 }}>
-                {franchisees.length} franchise partners
+                {franchisees.length} franchisees
               </span>
             </button>
           </div>
@@ -761,9 +761,9 @@ export default function DashboardPage() {
           <div ref={mapPanelRef} className="dashv2-panel">
             <div className="dashv2-panel-head">
               <div>
-                <h2 className="dashv2-panel-title">Live UK Store Compliance Map</h2>
+                <h2 className="dashv2-panel-title">Map</h2>
                 <p className="dashv2-panel-sub">
-                  Showing <strong className="tabular-nums" style={{ color: '#0f172a' }}>{mapStores.length}</strong> geocoded stores • Click markers or GPS pings to inspect
+                  <strong className="tabular-nums" style={{ color: '#0f172a' }}>{mapStores.length}</strong> stores shown • Click markers or GPS pins to inspect
                 </p>
               </div>
 
@@ -897,12 +897,12 @@ export default function DashboardPage() {
             <div className="dashv2-panel-head">
               <div>
                 <h2 className="dashv2-panel-title">
-                  {analyticsTab === 'velocity' ? 'Compliance Velocity & Audit Pipeline' : 'Franchise Compliance Benchmark'}
+                  {analyticsTab === 'velocity' ? 'Audit Summary' : 'Franchisee Summary'}
                 </h2>
                 <p className="dashv2-panel-sub">
                   {analyticsTab === 'velocity'
-                    ? 'Multi-round inspection trends and live 5-stage certification pipeline'
-                    : `Top franchise groups ranked by branch footprint across ${franchisees.length} partners`}
+                    ? 'Audit results by round and current status breakdown'
+                    : `Top franchisees across ${franchisees.length} groups`}
                 </p>
               </div>
 
@@ -913,7 +913,7 @@ export default function DashboardPage() {
                   className={`segmented-tab ${analyticsTab === 'velocity' ? 'active' : ''}`}
                   style={{ padding: '5px 12px', fontSize: '12px' }}
                 >
-                  Velocity &amp; Pipeline
+                  Audit Summary
                 </button>
                 <button
                   type="button"
@@ -921,7 +921,7 @@ export default function DashboardPage() {
                   className={`segmented-tab ${analyticsTab === 'franchise' ? 'active' : ''}`}
                   style={{ padding: '5px 12px', fontSize: '12px' }}
                 >
-                  Franchise Benchmark
+                  Franchisee List
                 </button>
               </div>
             </div>
@@ -1110,12 +1110,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Panel C: Recent Halal Audit Submissions Ledger */}
+          {/* Panel C: Audit List */}
           <div className="dashv2-panel">
             <div className="dashv2-panel-head">
               <div>
-                <h2 className="dashv2-panel-title">Recent Halal Audit Submissions</h2>
-                <p className="dashv2-panel-sub">Click any row to open the full 36-point compliance dossier</p>
+                <h2 className="dashv2-panel-title">Audit List</h2>
+                <p className="dashv2-panel-sub">Click any row to view full audit details</p>
               </div>
 
               <div className="dashv2-ledger-controls" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -1146,7 +1146,7 @@ export default function DashboardPage() {
                 </select>
 
                 <button type="button" onClick={() => navigate('/audits')} className="btn btn-outline btn-sm" style={{ height: 34 }}>
-                  <span>All Audits</span>
+                  <span>Audit List</span>
                   <ArrowRight size={13} />
                 </button>
               </div>
@@ -1236,12 +1236,12 @@ export default function DashboardPage() {
 
         {/* RIGHT STICKY OPERATIONAL RAIL */}
         <aside className="dashv2-rail">
-          {/* Card 1: Triage & Sign-Off Desk */}
+          {/* Card 1: Pending Actions */}
           <div className="dashv2-panel">
             <div className="dashv2-panel-head" style={{ padding: '14px 16px' }}>
               <div>
-                <h2 className="dashv2-panel-title">Triage &amp; Sign-Off Desk</h2>
-                <p className="dashv2-panel-sub">Prioritized manager approvals</p>
+                <h2 className="dashv2-panel-title">Pending Actions</h2>
+                <p className="dashv2-panel-sub">Items awaiting review or approval</p>
               </div>
               <span className="badge badge-warn tabular-nums">{actionItems.length} Open</span>
             </div>
@@ -1341,12 +1341,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Card 2: Live Field Ops Feed (GPS Pings + Scheduled Assignments) */}
+          {/* Card 2: Auditor Activity (GPS Pings + Assign List) */}
           <div className="dashv2-panel">
             <div className="dashv2-panel-head" style={{ padding: '14px 16px' }}>
               <div>
-                <h3 className="dashv2-panel-title">Live Field Ops Feed</h3>
-                <p className="dashv2-panel-sub">Click coordinates to fly map to ping</p>
+                <h3 className="dashv2-panel-title">Auditor Activity</h3>
+                <p className="dashv2-panel-sub">Click coordinates to view on map</p>
               </div>
               <div className="segmented-tabs" style={{ padding: 2 }}>
                 <button
@@ -1469,10 +1469,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Card 3: Quick Operations Dock */}
+          {/* Card 3: Quick Links */}
           <div className="dashv2-panel">
             <div className="dashv2-panel-head" style={{ padding: '12px 16px' }}>
-              <h3 className="dashv2-panel-title">Quick Operations</h3>
+              <h3 className="dashv2-panel-title">Quick Links</h3>
             </div>
             <div className="dashv2-panel-body" style={{ padding: '12px 14px' }}>
               <div className="dashv2-quick-grid">
@@ -1481,8 +1481,8 @@ export default function DashboardPage() {
                   onClick={() => (outletCtx.openNewAuditModal ? outletCtx.openNewAuditModal() : navigate('/audits'))}
                   className="dashv2-quick-btn"
                 >
-                  <ShieldCheck size={15} color="#059669" />
-                  <span>Conduct Audit</span>
+                  <Plus size={15} color="#059669" />
+                  <span>Assign</span>
                 </button>
                 <button
                   type="button"
@@ -1490,7 +1490,7 @@ export default function DashboardPage() {
                   className="dashv2-quick-btn"
                 >
                   <Store size={15} color="#2563eb" />
-                  <span>Register Store</span>
+                  <span>New Store</span>
                 </button>
                 <button
                   type="button"
@@ -1498,7 +1498,7 @@ export default function DashboardPage() {
                   className="dashv2-quick-btn"
                 >
                   <Award size={15} color="#d97706" />
-                  <span>Certificates</span>
+                  <span>Certificate List</span>
                 </button>
                 <button
                   type="button"
@@ -1506,7 +1506,7 @@ export default function DashboardPage() {
                   className="dashv2-quick-btn"
                 >
                   <Package size={15} color="#059669" />
-                  <span>Certified Products</span>
+                  <span>Product List</span>
                 </button>
               </div>
             </div>

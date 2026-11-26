@@ -53,16 +53,16 @@ export default function FeedbackPage() {
       {/* Executive Header */}
       <div className="dash-header">
         <div>
-          <h1 className="dash-title">Restaurant Audit Feedback</h1>
+          <h1 className="dash-title">Feedback List</h1>
           <div className="dash-subtitle">
-            <span>Independent post-inspection evaluations submitted by KFC UK store managers</span>
+            <span>Store manager audit feedback</span>
           </div>
         </div>
 
         <div className="dash-controls">
           <button type="button" onClick={() => setIsModalOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
             <Plus size={15} />
-            <span>Submit Store Evaluation</span>
+            <span>New Feedback</span>
           </button>
         </div>
       </div>

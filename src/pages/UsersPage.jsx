@@ -51,16 +51,16 @@ export default function UsersPage() {
       {/* Executive Header */}
       <div className="dash-header">
         <div>
-          <h1 className="dash-title">Portal Access &amp; Staff</h1>
+          <h1 className="dash-title">Manage Users</h1>
           <div className="dash-subtitle">
-            <span>Provision HFA staff credentials, manage field auditor accounts, and control access status</span>
+            <span>Manage HFA staff and auditor accounts</span>
           </div>
         </div>
 
         <div className="dash-controls">
           <button type="button" onClick={() => setIsAddUserOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
             <Plus size={15} />
-            <span>Create Portal User</span>
+            <span>New User</span>
           </button>
         </div>
       </div>

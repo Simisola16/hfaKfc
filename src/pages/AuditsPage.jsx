@@ -229,7 +229,23 @@ export default function AuditsPage({ fixedCategory }) {
     navigate(route);
   };
 
-  const pageHeading = activeCategory === 'ALL' ? 'Audit List' : activeCategory;
+  const getPageHeading = () => {
+    switch (activeCategory) {
+      case 'Passed':
+        return 'Passed List';
+      case 'Other Fail':
+        return 'Other Fail List';
+      case 'L3 Critical Fail':
+        return 'Failed List';
+      case 'Recommend For Pass':
+        return 'Recommend For Pass';
+      case 'Review List':
+        return 'Review List';
+      default:
+        return 'Audit List';
+    }
+  };
+  const pageHeading = getPageHeading();
 
   return (
     <div className="page-shell">
@@ -238,7 +254,7 @@ export default function AuditsPage({ fixedCategory }) {
         <div>
           <h1 className="dash-title">{pageHeading}</h1>
           <div className="dash-subtitle">
-            <span>Search and filter restaurant inspection records by session, franchisee, store, auditor, and date range</span>
+            <span>Search audits by session, franchisee, store, auditor, and date</span>
           </div>
         </div>
 
@@ -249,7 +265,7 @@ export default function AuditsPage({ fixedCategory }) {
           </button>
           <button type="button" onClick={() => setIsNewAuditOpen(true)} className="btn btn-primary btn-sm" style={{ height: 36, padding: '0 14px' }}>
             <Plus size={15} />
-            <span>Conduct Audit</span>
+            <span>Assign</span>
           </button>
         </div>
       </div>
@@ -333,12 +349,12 @@ export default function AuditsPage({ fixedCategory }) {
       <div>
         <div className="segmented-tabs">
           {[
-            { cat: 'ALL', route: '/audits', label: 'All Audits', count: audits.length, dot: '#475569' },
+            { cat: 'ALL', route: '/audits', label: 'Audit List', count: audits.length, dot: '#475569' },
             { cat: 'Recommend For Pass', route: '/audits/recommend-pass', label: 'Recommend For Pass', count: audits.filter(a => a.category === 'Recommend For Pass').length, dot: '#2563eb' },
             { cat: 'Review List', route: '/audits/review', label: 'Review List', count: audits.filter(a => a.category === 'Review List').length, dot: '#f59e0b' },
-            { cat: 'Passed', route: '/audits/passed', label: 'Passed', count: audits.filter(a => a.category === 'Passed').length, dot: '#059669' },
+            { cat: 'Passed', route: '/audits/passed', label: 'Passed Audits', count: audits.filter(a => a.category === 'Passed').length, dot: '#059669' },
             { cat: 'Other Fail', route: '/audits/other-fail', label: 'Other Fail', count: audits.filter(a => a.category === 'Other Fail').length, dot: '#f97316' },
-            { cat: 'L3 Critical Fail', route: '/audits/critical-fail', label: 'Critical L3', count: audits.filter(a => a.category === 'L3 Critical Fail').length, dot: '#dc2626' },
+            { cat: 'L3 Critical Fail', route: '/audits/critical-fail', label: 'L3 Fail Audits', count: audits.filter(a => a.category === 'L3 Critical Fail').length, dot: '#dc2626' },
           ].map(tab => (
             <button
               key={tab.cat}

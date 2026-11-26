@@ -127,9 +127,9 @@ export default function NewAuditModal({ isOpen, onClose, defaultStoreId }) {
               <ClipboardCheck size={19} />
             </div>
             <div>
-              <h3 className="card-title" style={{ margin: 0 }}>Conduct Audit</h3>
+              <h3 className="card-title" style={{ margin: 0 }}>Assign</h3>
               <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0' }}>
-                Select audit session, franchisee, branch store, auditor, and date range
+                Select session, franchisee, store, auditor, and date
               </p>
             </div>
           </div>
@@ -293,7 +293,7 @@ export default function NewAuditModal({ isOpen, onClose, defaultStoreId }) {
               className="btn btn-primary"
               disabled={!currentSelectedStore}
             >
-              Submit Audit
+              Assign
             </button>
           </div>
         </form>
