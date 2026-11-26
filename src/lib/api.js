@@ -90,10 +90,16 @@ export const api = {
     body: JSON.stringify({ status })
   }),
 
-  // Users
+  // Users (HFA Staff & Auditors)
   getUsers: () => fetchJson('/users'),
   createUser: (data) => fetchJson('/users', { method: 'POST', body: JSON.stringify(data) }),
   toggleUser: (id) => fetchJson(`/users/${id}/toggle`, { method: 'PATCH' }),
+
+  // KFC Headquarters Users (managed exclusively by HFA Admin)
+  getKfcUsers: () => fetchJson('/kfc-users'),
+  createKfcUser: (data) => fetchJson('/kfc-users', { method: 'POST', body: JSON.stringify(data) }),
+  toggleKfcUser: (id) => fetchJson(`/kfc-users/${id}/toggle`, { method: 'PATCH' }),
+  deleteKfcUser: (id) => fetchJson(`/kfc-users/${id}`, { method: 'DELETE' }),
 
   // Auth
   login: (username, password) => fetchJson('/auth/login', {

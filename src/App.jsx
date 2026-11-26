@@ -16,6 +16,7 @@ import FeedbackPage from './pages/FeedbackPage';
 import AppealsPage from './pages/AppealsPage';
 import CertificatesPage from './pages/CertificatesPage';
 import UsersPage from './pages/UsersPage';
+import KfcUsersPage from './pages/KfcUsersPage';
 
 function ProtectedRoute({ children }) {
   const { currentUser } = useKfc();
@@ -80,6 +81,7 @@ export default function App() {
             <Route path="appeals" element={<AppealsPage />} />
             <Route path="certificates" element={<CertificatesPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="kfc-users" element={<KfcUsersPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

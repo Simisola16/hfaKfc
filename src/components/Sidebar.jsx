@@ -59,6 +59,7 @@ export const NAV_SECTIONS = [
       { id: 'appeals', path: '/appeals', label: 'Auditor Appeals Hub', icon: ShieldAlert, badgeKey: 'appeals' },
       { id: 'feedback', path: '/feedback', label: 'Restaurant Feedback', icon: MessageSquare },
       { id: 'users', path: '/users', label: 'Portal Access & Staff', icon: Users },
+      { id: 'kfc-users', path: '/kfc-users', label: 'KFC Users (HQ)', icon: Building2 },
     ]
   },
 ];
