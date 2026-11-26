@@ -371,19 +371,33 @@ export function KfcProvider({ children }) {
     return tempAudit;
   };
 
-  const updateAuditCategory = async (id, newCategory) => {
-    let targetAudit = null;
+  const updateAuditCategory = async (id, newCategory, extra = {}) => {
+    const judgedAt = extra.adminJudgedAt || new Date().toLocaleString();
+    const judgedBy = extra.adminJudgedBy || currentUser?.fullName || currentUser?.username || 'HFA Admin';
+    const extraFields = {
+      ...(typeof extra.adminDecisionReason === 'string'
+        ? { adminDecisionReason: extra.adminDecisionReason }
+        : {}),
+      adminJudgedBy: judgedBy,
+      adminJudgedAt: judgedAt
+    };
+
+    const existingAudit = audits.find(a => String(a.id) === String(id)) || null;
     setAudits(prev => prev.map(a => {
       if (String(a.id) === String(id)) {
-        targetAudit = { ...a, category: newCategory };
-        return targetAudit;
+        return {
+          ...a,
+          auditorRecommendation: a.auditorRecommendation || a.category,
+          category: newCategory,
+          ...extraFields
+        };
       }
       return a;
     }));
 
-    if (targetAudit) {
+    if (existingAudit) {
       setStores(prev => prev.map(s => {
-        if (s.branchCode === targetAudit.branchCode || s.name === targetAudit.storeName) {
+        if (s.branchCode === existingAudit.branchCode || s.name === existingAudit.storeName) {
           return {
             ...s,
             halalCertified: newCategory === 'Passed',
@@ -395,8 +409,8 @@ export function KfcProvider({ children }) {
       }));
     }
 
-    await api.updateAuditCategory(id, newCategory);
-    toast.success(`Audit status updated to "${newCategory}"`);
+    await api.updateAuditCategory(id, newCategory, extraFields);
+    toast.success(`Final judgment saved: "${newCategory}"`);
   };
 
   const updateAudit = async (id, updates) => {

@@ -1,80 +1,243 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useKfc } from '../context/KfcContext';
 import {
-  X, CheckCircle2, AlertTriangle, AlertOctagon, Clock,
-  Award, Printer, Camera, FileCheck, Eye
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  AlertOctagon,
+  Award,
+  Printer,
+  Camera,
+  Eye,
+  ShieldCheck,
+  FileText
 } from 'lucide-react';
+
+const CHECKLIST_POINTS = [
+  { code: '1.1', scoreKey: 'ScoreCommentsA1', commentKey: 'MsgA1' },
+  { code: '1.2', scoreKey: 'ScoreCommentsA2', commentKey: 'MsgA2' },
+  { code: '1.3', scoreKey: 'ScoreCommentsA3', commentKey: 'MsgA3' },
+  { code: '1.4', scoreKey: 'ScoreCommentsA4', commentKey: 'MsgA4' },
+  { code: '2.1', scoreKey: 'ScoreCommentsB1', commentKey: 'MsgB1' },
+  { code: '2.2', scoreKey: 'ScoreCommentsB2', commentKey: 'MsgB2' },
+  { code: '2.3', scoreKey: 'ScoreCommentsB3', commentKey: 'MsgB3' },
+  { code: '3.1', scoreKey: 'ScoreCommentsC1', commentKey: 'MsgC1' },
+  { code: '3.2', scoreKey: 'ScoreCommentsC2', commentKey: 'MsgC2' },
+  { code: '4.1', scoreKey: 'ScoreCommentsD1', commentKey: 'MsgD1' }
+];
+
+const SCORING_MATRIX_RULES = [
+  'The higher the number, the more severe, for each audit point',
+  '1 x L3 = fail & potential loss of license if found to sell non-halal chicken. In case of fail with no loss of license then 2 follow up audits.',
+  '2 x L2 = Fail & 2 follow up audits',
+  '2 x L1 & 1 x L2 = Fail & 1 follow up audit',
+  '3 x L1 = Fail & 1 follow up audit'
+];
+
+const FINAL_JUDGMENT_ACTIONS = [
+  {
+    id: 'PASS',
+    label: 'Pass',
+    category: 'Passed',
+    confirmMessage: 'Are you sure you want to issue the final judgment as Pass?',
+    bg: '#059669',
+    hoverBg: '#047857',
+    icon: CheckCircle2
+  },
+  {
+    id: 'OTHER_FAIL',
+    label: 'Other Fail',
+    category: 'Other Fail',
+    confirmMessage: 'Are you sure you want to issue the final judgment as Other Fail?',
+    bg: '#d97706',
+    hoverBg: '#b45309',
+    icon: AlertTriangle
+  },
+  {
+    id: 'L3_FAIL',
+    label: 'L3 Fail',
+    category: 'L3 Critical Fail',
+    confirmMessage: 'Are you sure you want to issue the final judgment as L3 Fail?',
+    bg: '#dc2626',
+    hoverBg: '#b91c1c',
+    icon: AlertOctagon
+  }
+];
+
+function getScoreBadgeStyle(score) {
+  if (score === 'Pass') {
+    return { background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' };
+  }
+  if (score === 'L1') {
+    return { background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' };
+  }
+  if (score === 'L2') {
+    return { background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' };
+  }
+  if (score === 'L3') {
+    return { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' };
+  }
+  return { background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' };
+}
+
+function formatAuditorRecommendation(audit) {
+  if (audit.auditorRecommendation) return audit.auditorRecommendation;
+  switch (audit.category) {
+    case 'Recommend For Pass':
+      return 'For Pass';
+    case 'Review List':
+      return 'For Review';
+    case 'Other Fail':
+      return 'Other Fail';
+    case 'L3 Critical Fail':
+      return 'L3 Critical Fail';
+    case 'Passed':
+      return 'For Pass';
+    default:
+      return audit.category || '--';
+  }
+}
 
 export default function AuditDetailModal({ audit, onClose }) {
   const navigate = useNavigate();
   const { audits, stores, updateAuditCategory } = useKfc();
-  const [activeTab, setActiveTab] = useState('summary');
+  const [activeTab, setActiveTab] = useState('outcome');
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [adminReason, setAdminReason] = useState('');
+  const [pendingJudgment, setPendingJudgment] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Always keep admin judgment Reason empty by default when opening/switching audits
+  useEffect(() => {
+    setAdminReason('');
+    setPendingJudgment(null);
+    setActiveTab('outcome');
+  }, [audit?.id]);
 
   if (!audit) return null;
 
-  // Always reflect live state from KfcContext so status changes update immediately inside the modal
   const liveAudit = audits.find(a => String(a.id) === String(audit.id)) || audit;
-  const matchedStore = stores.find(s => s.branchCode === liveAudit.branchCode || s.name === liveAudit.storeName);
+  const matchedStore = stores.find(
+    s => s.branchCode === liveAudit.branchCode || s.name === liveAudit.storeName
+  );
+
+  const outcomeData = liveAudit.outcomeData || {};
+  const checklistScores = liveAudit.checklistScores || {};
+  const checklistComments = liveAudit.checklistComments || {};
+
+  const branchCode = liveAudit.branchCode || liveAudit.storeId || '—';
+  const storeAddress = liveAudit.address || matchedStore?.address || '—';
+  const storeRep = outcomeData.storeRep || liveAudit.storeRepresentative || '—';
+  const designation = outcomeData.designation || liveAudit.designation || '—';
+  const auditorName = outcomeData.auditorName || liveAudit.auditor || '—';
+  const auditDate = liveAudit.auditDate || '—';
+  const timeIn = outcomeData.timeIn || liveAudit.timeIn || '—';
+  const timeOut = liveAudit.timeOut || '—';
+
+  const auditorSignature = outcomeData.ncrSignature || liveAudit.signatureAuditor || '';
+  const auditorPrintName = outcomeData.ncrPrintName || auditorName;
+  const storeRepSignature = outcomeData.rsrSignature || liveAudit.signatureStoreRep || '';
+  const storeRepPrintName = outcomeData.rsrPrintName || storeRep;
+  const understoodDate = outcomeData.ncrDate || auditDate;
+  const rsrResponse = outcomeData.rsrResponse || '';
+
+  const auditorRecLabel = formatAuditorRecommendation(liveAudit);
+  const auditorReason =
+    liveAudit.recommendationReason ||
+    liveAudit.checklistOverallComment ||
+    liveAudit.complianceSummary?.auditorNotes ||
+    '';
+
+  const isAlreadyJudged = Boolean(liveAudit.adminJudgedAt) || liveAudit.category === 'Passed';
+  const auditStatusDisplay = isAlreadyJudged ? liveAudit.category : '--';
+
+  const photos =
+    Array.isArray(liveAudit.evidencePhotos) && liveAudit.evidencePhotos.length > 0
+      ? liveAudit.evidencePhotos.map((url, i) => ({
+          title: `Inspection Evidence #${i + 1}`,
+          url
+        }))
+      : [];
 
   const getStatusBadge = (category) => {
     switch (category) {
       case 'Passed':
-        return <span className="badge badge-pass"><span className="badge-dot" /> Passed & Certified</span>;
+        return (
+          <span className="badge badge-pass">
+            <span className="badge-dot" /> Passed &amp; Certified
+          </span>
+        );
       case 'Recommend For Pass':
-        return <span className="badge badge-blue"><span className="badge-dot" /> Recommend For Pass</span>;
+        return (
+          <span className="badge badge-blue">
+            <span className="badge-dot" /> Recommend For Pass
+          </span>
+        );
       case 'Review List':
-        return <span className="badge badge-warn"><span className="badge-dot" /> Under Review</span>;
+        return (
+          <span className="badge badge-warn">
+            <span className="badge-dot" /> Review List
+          </span>
+        );
       case 'Other Fail':
-        return <span className="badge badge-warn"><span className="badge-dot" /> Other Fail (Minor NC)</span>;
+        return (
+          <span className="badge badge-warn">
+            <span className="badge-dot" /> Other Fail
+          </span>
+        );
       case 'L3 Critical Fail':
-        return <span className="badge badge-fail"><span className="badge-dot" /> L3 Critical Fail</span>;
+        return (
+          <span className="badge badge-fail">
+            <span className="badge-dot" /> L3 Critical Fail
+          </span>
+        );
       default:
-        return <span className="badge badge-neutral">{category}</span>;
+        return <span className="badge badge-neutral">{category || '--'}</span>;
     }
   };
 
-  const defaultEvidence = [
-    {
-      title: 'Poultry Delivery Tamper Seal Intact',
-      url: 'https://images.unsplash.com/photo-1587593810167-a84920ea0781?auto=format&fit=crop&w=600&q=80'
-    },
-    {
-      title: 'Fryer Vat Vegetable Oil Verification',
-      url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80'
-    },
-    {
-      title: 'Official Halal Certificate Display Frame',
-      url: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=600&q=80'
+  const handleConfirmJudgment = async () => {
+    if (!pendingJudgment) return;
+    setIsSubmitting(true);
+    try {
+      await updateAuditCategory(liveAudit.id, pendingJudgment.category, {
+        adminDecisionReason: adminReason.trim()
+      });
+      setPendingJudgment(null);
+      setAdminReason('');
+    } finally {
+      setIsSubmitting(false);
     }
-  ];
-
-  const photos = liveAudit.evidencePhotos && liveAudit.evidencePhotos.length > 0
-    ? liveAudit.evidencePhotos.map((url, i) => ({ title: `Inspection Evidence #${i + 1}`, url }))
-    : defaultEvidence;
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
         className="modal-content"
-        style={{ maxWidth: 860, maxHeight: '92vh', overflowY: 'auto' }}
+        style={{ maxWidth: 920, maxHeight: '92vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}
       >
+        {/* Modal Header */}
         <div className="modal-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-              <h3 className="card-title">Halal Audit Dossier — {liveAudit.storeName}</h3>
+              <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FileText size={18} color="#059669" />
+                <span>Audit Outcome Sheet</span>
+              </h3>
               {getStatusBadge(liveAudit.category)}
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--slate-500)', marginTop: '0.2rem' }}>
-              {liveAudit.branchCode} • {liveAudit.franchisee}
+            <div style={{ fontSize: '0.8rem', color: 'var(--slate-500)', marginTop: '0.25rem' }}>
+              <strong>Franchisee:</strong> {liveAudit.franchisee || '—'} &nbsp;|&nbsp;{' '}
+              <strong>Store:</strong> {liveAudit.storeName || '—'}
             </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {matchedStore && (
               <button
+                type="button"
                 onClick={() => {
                   onClose();
                   navigate(`/certificates?storeId=${encodeURIComponent(matchedStore.id)}`);
@@ -85,226 +248,561 @@ export default function AuditDetailModal({ audit, onClose }) {
                 <span>Certificate</span>
               </button>
             )}
-            <button onClick={() => window.print()} className="btn btn-outline btn-sm">
+            <button type="button" onClick={() => window.print()} className="btn btn-outline btn-sm">
               <Printer size={14} />
-              <span>Print Dossier</span>
+              <span>Print</span>
             </button>
-            <button onClick={onClose} className="btn btn-ghost btn-sm">
+            <button type="button" onClick={onClose} className="btn btn-ghost btn-sm">
               <X size={18} />
             </button>
           </div>
         </div>
 
-        {/* Tab navigation */}
-        <div style={{
-          display: 'flex',
-          borderBottom: '1px solid var(--slate-200)',
-          padding: '0 1.5rem',
-          background: 'var(--slate-50)',
-          gap: '1.25rem',
-          overflowX: 'auto'
-        }}>
-          <button
-            type="button"
-            onClick={() => setActiveTab('summary')}
+        {/* Optional Tabs when photo evidence exists */}
+        {photos.length > 0 && (
+          <div
             style={{
-              padding: '0.85rem 0.5rem',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              background: 'none',
-              border: 'none',
-              borderBottom: activeTab === 'summary' ? '2.5px solid #059669' : '2.5px solid transparent',
-              color: activeTab === 'summary' ? '#059669' : 'var(--slate-600)',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            Audit Summary & Checklist
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('evidence')}
-            style={{
-              padding: '0.85rem 0.5rem',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              background: 'none',
-              border: 'none',
-              borderBottom: activeTab === 'evidence' ? '2.5px solid #059669' : '2.5px solid transparent',
-              color: activeTab === 'evidence' ? '#059669' : 'var(--slate-600)',
-              cursor: 'pointer',
               display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              whiteSpace: 'nowrap'
+              borderBottom: '1px solid var(--slate-200)',
+              padding: '0 1.5rem',
+              background: 'var(--slate-50)',
+              gap: '1.25rem'
             }}
           >
-            <Camera size={14} />
-            <span>Photo Evidence ({photos.length})</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('signatures')}
-            style={{
-              padding: '0.85rem 0.5rem',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              background: 'none',
-              border: 'none',
-              borderBottom: activeTab === 'signatures' ? '2.5px solid #059669' : '2.5px solid transparent',
-              color: activeTab === 'signatures' ? '#059669' : 'var(--slate-600)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            <FileCheck size={14} />
-            <span>Digital Signatures</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('outcome')}
+              style={{
+                padding: '0.8rem 0.5rem',
+                fontWeight: 700,
+                fontSize: '0.84rem',
+                background: 'none',
+                border: 'none',
+                borderBottom:
+                  activeTab === 'outcome' ? '2.5px solid #059669' : '2.5px solid transparent',
+                color: activeTab === 'outcome' ? '#059669' : 'var(--slate-600)',
+                cursor: 'pointer'
+              }}
+            >
+              Outcome Sheet for KFC
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('evidence')}
+              style={{
+                padding: '0.8rem 0.5rem',
+                fontWeight: 700,
+                fontSize: '0.84rem',
+                background: 'none',
+                border: 'none',
+                borderBottom:
+                  activeTab === 'evidence' ? '2.5px solid #059669' : '2.5px solid transparent',
+                color: activeTab === 'evidence' ? '#059669' : 'var(--slate-600)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+            >
+              <Camera size={14} />
+              <span>Photo Evidence ({photos.length})</span>
+            </button>
+          </div>
+        )}
 
-        <div className="modal-body">
-          {activeTab === 'summary' && (
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {activeTab === 'outcome' && (
             <>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-                gap: '1rem',
-                padding: '1.25rem',
-                background: 'var(--slate-50)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--slate-200)',
-                marginBottom: '1.5rem'
-              }}>
+              {/* Official Banner */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #064e2b 0%, #0b663a 100%)',
+                  color: '#ffffff',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1rem 1.25rem',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.5rem'
+                }}
+              >
                 <div>
-                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 700 }}>
-                    Audit Date & Time
+                  <div style={{ fontSize: '0.95rem', fontWeight: 800, letterSpacing: '-0.01em' }}>
+                    Outcome Sheet for KFC
                   </div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--slate-800)', marginTop: '0.2rem' }}>
-                    {liveAudit.auditDate} ({liveAudit.timeIn} - {liveAudit.timeOut})
+                  <div style={{ fontSize: '0.8rem', color: '#d1fae5', marginTop: 2 }}>
+                    Franchisee: <strong>{liveAudit.franchisee || '—'}</strong> &nbsp;||&nbsp; Store:{' '}
+                    <strong>{liveAudit.storeName || '—'}</strong>
                   </div>
                 </div>
-
-                <div>
-                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 700 }}>
-                    Inspection Score
-                  </div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: liveAudit.score >= 85 ? '#059669' : '#b91c1c' }}>
-                    {liveAudit.score} / 100
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 700 }}>
-                    Lead Auditor
-                  </div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--slate-800)', marginTop: '0.2rem' }}>
-                    {liveAudit.auditor}
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--slate-500)', fontWeight: 700 }}>
-                    Franchisee Partner
-                  </div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--slate-800)', marginTop: '0.2rem' }}>
-                    {liveAudit.franchisee}
-                  </div>
-                </div>
+                {liveAudit.session && (
+                  <span
+                    style={{
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      background: 'rgba(255,255,255,0.16)',
+                      padding: '4px 10px',
+                      borderRadius: 999
+                    }}
+                  >
+                    {liveAudit.session}
+                  </span>
+                )}
               </div>
 
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.5rem' }}>Store Location & General Manager</h4>
-                <div style={{ fontSize: '0.85rem', color: 'var(--slate-600)', lineHeight: '1.6' }}>
-                  <div><strong>Address:</strong> {liveAudit.address}, {liveAudit.postcode}</div>
-                  <div><strong>Store Representative Present:</strong> {liveAudit.storeRepresentative}</div>
-                  <div><strong>Audit Session / Round:</strong> {liveAudit.session}</div>
-                </div>
+              {/* 1. Store & Audit Details Table */}
+              <div
+                style={{
+                  border: '1px solid var(--slate-200)',
+                  borderRadius: 'var(--radius-md)',
+                  overflow: 'hidden',
+                  background: '#ffffff'
+                }}
+              >
+                <table className="data-table" style={{ margin: 0 }}>
+                  <tbody>
+                    {[
+                      ['Branch Code:', branchCode],
+                      ['Store Address:', storeAddress],
+                      ['Store Representative:', storeRep],
+                      ['Designation:', designation],
+                      ['Auditor:', auditorName],
+                      ['Audit Date:', auditDate],
+                      ['Time In:', timeIn],
+                      ['Time Out:', timeOut]
+                    ].map(([label, val]) => (
+                      <tr key={label}>
+                        <td
+                          style={{
+                            width: '32%',
+                            fontWeight: 700,
+                            color: '#334155',
+                            background: '#f8fafc',
+                            borderRight: '1px solid #e2e8f0',
+                            padding: '0.55rem 0.9rem',
+                            fontSize: '0.82rem'
+                          }}
+                        >
+                          {label}
+                        </td>
+                        <td
+                          style={{
+                            fontWeight: 600,
+                            color: '#0f172a',
+                            padding: '0.55rem 0.9rem',
+                            fontSize: '0.84rem'
+                          }}
+                        >
+                          {val}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.75rem' }}>Halal Standard Verification Protocol</h4>
-                <div style={{ border: '1px solid var(--slate-200)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                  <table className="data-table">
+              {/* 2. Summary — All 10 Checklist Audit Points */}
+              <div>
+                <h4
+                  style={{
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    marginBottom: '0.55rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  Summary
+                </h4>
+                <div
+                  style={{
+                    border: '1px solid var(--slate-200)',
+                    borderRadius: 'var(--radius-md)',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <table className="data-table" style={{ margin: 0 }}>
                     <thead>
                       <tr>
-                        <th>Audit Standard Item</th>
-                        <th>Observed Compliance</th>
+                        <th style={{ width: '16%' }}>Audit Point</th>
+                        <th style={{ width: '18%' }}>Score</th>
+                        <th>Comment</th>
                       </tr>
                     </thead>
                     <tbody>
+                      {CHECKLIST_POINTS.map((pt) => {
+                        const rawScore = checklistScores[pt.scoreKey];
+                        const score =
+                          rawScore && rawScore !== 'Select Option' ? rawScore : '—';
+                        const comment = checklistComments[pt.commentKey] || '';
+                        return (
+                          <tr key={pt.code}>
+                            <td style={{ fontWeight: 800, color: '#064e2b', fontFamily: 'monospace' }}>
+                              {pt.code}
+                            </td>
+                            <td>
+                              <span
+                                style={{
+                                  ...getScoreBadgeStyle(score),
+                                  display: 'inline-block',
+                                  padding: '2px 10px',
+                                  borderRadius: 999,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700
+                                }}
+                              >
+                                {score}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: '0.82rem', color: '#334155' }}>
+                              {comment || <span style={{ color: '#94a3b8' }}>—</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 3. Outcome (Auditor Sign-off, Recommendation & Reason) */}
+              <div>
+                <h4
+                  style={{
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    marginBottom: '0.55rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  Outcome
+                </h4>
+                <div
+                  style={{
+                    border: '1px solid var(--slate-200)',
+                    borderRadius: 'var(--radius-md)',
+                    overflow: 'hidden',
+                    background: '#ffffff'
+                  }}
+                >
+                  <table className="data-table" style={{ margin: 0 }}>
+                    <tbody>
                       <tr>
-                        <td>Poultry Supplier & Delivery Seal Intactness</td>
+                        <td style={{ width: '36%', fontWeight: 700, background: '#f8fafc', color: '#334155', borderRight: '1px solid #e2e8f0' }}>
+                          Signed by HFA Auditor:
+                        </td>
                         <td>
-                          {liveAudit.category === 'L3 Critical Fail' ? (
-                            <span className="badge badge-fail"><span className="badge-dot" /> Breach Flagged</span>
+                          {auditorSignature ? (
+                            <img
+                              src={auditorSignature}
+                              alt="HFA Auditor Signature"
+                              style={{ maxHeight: 72, maxWidth: 240, objectFit: 'contain', border: '1px solid #e2e8f0', borderRadius: 8, padding: 4, background: '#fff' }}
+                            />
                           ) : (
-                            <span className="badge badge-pass"><span className="badge-dot" /> Compliant</span>
+                            <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>No signature recorded</span>
                           )}
                         </td>
                       </tr>
                       <tr>
-                        <td>Approved KFC Breading, Marinade & Seasoning Use</td>
-                        <td>
-                          <span className="badge badge-pass"><span className="badge-dot" /> Compliant</span>
+                        <td style={{ fontWeight: 700, background: '#f8fafc', color: '#334155', borderRight: '1px solid #e2e8f0' }}>
+                          Print Name:
                         </td>
+                        <td style={{ fontWeight: 600 }}>{auditorPrintName}</td>
                       </tr>
                       <tr>
-                        <td>Vegetable Oil & Dedicated Fryer Segregation</td>
-                        <td>
-                          <span className="badge badge-pass"><span className="badge-dot" /> Compliant</span>
+                        <td style={{ fontWeight: 700, background: '#f8fafc', color: '#334155', borderRight: '1px solid #e2e8f0' }}>
+                          Auditor&apos;s Recommendation:
                         </td>
+                        <td style={{ fontWeight: 700, color: '#064e2b' }}>{auditorRecLabel}</td>
                       </tr>
                       <tr>
-                        <td>Tamper Stickers & Approved Packaging Compliance</td>
+                        <td style={{ fontWeight: 700, background: '#f8fafc', color: '#334155', borderRight: '1px solid #e2e8f0' }}>
+                          Audit Status:
+                        </td>
+                        <td style={{ fontWeight: 700 }}>{auditStatusDisplay}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 700, background: '#f8fafc', color: '#334155', borderRight: '1px solid #e2e8f0' }}>
+                          Auditor Recommendation Reason:
+                        </td>
+                        <td style={{ fontSize: '0.84rem', color: '#334155', lineHeight: 1.5 }}>
+                          {auditorReason || <span style={{ color: '#94a3b8' }}>—</span>}
+                        </td>
+                      </tr>
+                      {liveAudit.adminDecisionReason && (
+                        <tr>
+                          <td style={{ fontWeight: 700, background: '#ecfdf5', color: '#065f46', borderRight: '1px solid #a7f3d0' }}>
+                            Admin Judgment Reason:
+                          </td>
+                          <td style={{ fontSize: '0.84rem', color: '#065f46', fontWeight: 600 }}>
+                            {liveAudit.adminDecisionReason}
+                            {liveAudit.adminJudgedBy && (
+                              <div style={{ fontSize: '0.72rem', color: '#047857', marginTop: 2 }}>
+                                Judged by {liveAudit.adminJudgedBy}
+                                {liveAudit.adminJudgedAt ? ` • ${liveAudit.adminJudgedAt}` : ''}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 4. Non-Conformances Raised & Franchisee Acknowledgement */}
+              <div>
+                <h4
+                  style={{
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    marginBottom: '0.55rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.03em'
+                  }}
+                >
+                  Non-Conformances Raised
+                </h4>
+                <div
+                  style={{
+                    border: '1px solid var(--slate-200)',
+                    borderRadius: 'var(--radius-md)',
+                    overflow: 'hidden',
+                    background: '#ffffff'
+                  }}
+                >
+                  <table className="data-table" style={{ margin: 0 }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ width: '44%', fontWeight: 700, background: '#f8fafc', color: '#334155', borderRight: '1px solid #e2e8f0' }}>
+                          I have read and understood the contents of this document on this given day of:
+                        </td>
+                        <td style={{ fontWeight: 600 }}>{understoodDate}</td>
+                      </tr>
+                      {rsrResponse && (
+                        <tr>
+                          <td style={{ fontWeight: 700, background: '#f8fafc', color: '#334155', borderRight: '1px solid #e2e8f0' }}>
+                            Shift Runner Representation:
+                          </td>
+                          <td style={{ fontSize: '0.84rem', color: '#334155' }}>{rsrResponse}</td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td style={{ fontWeight: 700, background: '#f8fafc', color: '#334155', borderRight: '1px solid #e2e8f0' }}>
+                          Signed by or on behalf of Company / Franchisee:
+                        </td>
                         <td>
-                          {liveAudit.category === 'Other Fail' ? (
-                            <span className="badge badge-warn"><span className="badge-dot" /> Discrepancy Flagged</span>
+                          {storeRepSignature ? (
+                            <img
+                              src={storeRepSignature}
+                              alt="Company / Franchisee Signature"
+                              style={{ maxHeight: 72, maxWidth: 240, objectFit: 'contain', border: '1px solid #e2e8f0', borderRadius: 8, padding: 4, background: '#fff' }}
+                            />
                           ) : (
-                            <span className="badge badge-pass"><span className="badge-dot" /> Compliant</span>
+                            <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>No signature recorded</span>
                           )}
                         </td>
                       </tr>
                       <tr>
-                        <td>Official HFA Halal Certificate Displayed on Site</td>
-                        <td>
-                          <span className="badge badge-pass"><span className="badge-dot" /> Verified</span>
+                        <td style={{ fontWeight: 700, background: '#f8fafc', color: '#334155', borderRight: '1px solid #e2e8f0' }}>
+                          Print Name:
                         </td>
+                        <td style={{ fontWeight: 600 }}>{storeRepPrintName}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.5rem' }}>Auditor Assessment & Notes</h4>
-                <div style={{
-                  padding: '1rem',
-                  background: '#f8fafc',
-                  border: '1px solid var(--slate-200)',
+              {/* 5. SCORING MATRIX */}
+              <div
+                style={{
+                  border: '1px solid #cbd5e1',
                   borderRadius: 'var(--radius-md)',
-                  fontSize: '0.85rem',
-                  color: 'var(--slate-700)',
-                  lineHeight: '1.6'
-                }}>
-                  {liveAudit.complianceSummary?.auditorNotes || 'Full compliance observed throughout the physical inspection. All temperature logs, delivery notes, and seal records match HFA standards.'}
+                  overflow: 'hidden',
+                  background: '#f8fafc'
+                }}
+              >
+                <div
+                  style={{
+                    background: '#0f172a',
+                    color: '#ffffff',
+                    padding: '0.6rem 1rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 800,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  SCORING MATRIX
                 </div>
+                <ul
+                  style={{
+                    margin: 0,
+                    padding: '0.85rem 1.25rem 0.85rem 2rem',
+                    fontSize: '0.82rem',
+                    color: '#334155',
+                    lineHeight: 1.7
+                  }}
+                >
+                  {SCORING_MATRIX_RULES.map((rule, idx) => (
+                    <li key={idx}>{rule}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* 6. Admin Final Judgment Section */}
+              <div
+                style={{
+                  padding: '1.25rem',
+                  background: '#ffffff',
+                  borderRadius: 'var(--radius-md)',
+                  border: '2px solid #cbd5e1',
+                  boxShadow: 'var(--shadow-xs)'
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: '0.9rem',
+                    fontWeight: 800,
+                    color: '#0f172a',
+                    marginBottom: '0.75rem'
+                  }}
+                >
+                  <ShieldCheck size={18} color="#059669" />
+                  <span>Final Admin Judgment</span>
+                </div>
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <label
+                    htmlFor="admin-judgment-reason"
+                    style={{
+                      display: 'block',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      color: '#334155',
+                      marginBottom: '0.4rem'
+                    }}
+                  >
+                    Reason:
+                  </label>
+                  <textarea
+                    id="admin-judgment-reason"
+                    rows={3}
+                    value={adminReason}
+                    onChange={e => setAdminReason(e.target.value)}
+                    placeholder="Enter your reason for the final judgment..."
+                    className="form-input"
+                    style={{
+                      width: '100%',
+                      resize: 'vertical',
+                      padding: '0.65rem 0.85rem',
+                      fontSize: '0.85rem',
+                      lineHeight: 1.5
+                    }}
+                  />
+                </div>
+
+                {pendingJudgment ? (
+                  <div
+                    style={{
+                      padding: '1rem',
+                      borderRadius: 'var(--radius-sm)',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem'
+                    }}
+                  >
+                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>
+                      {pendingJudgment.confirmMessage}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={handleConfirmJudgment}
+                        style={{
+                          padding: '0.55rem 1.1rem',
+                          borderRadius: 8,
+                          border: 'none',
+                          background: pendingJudgment.bg,
+                          color: '#ffffff',
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {isSubmitting ? 'Saving...' : `Yes, Confirm ${pendingJudgment.label}`}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={() => setPendingJudgment(null)}
+                        className="btn btn-outline btn-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+                    {FINAL_JUDGMENT_ACTIONS.map((action) => {
+                      const Icon = action.icon;
+                      return (
+                        <button
+                          key={action.id}
+                          type="button"
+                          onClick={() => setPendingJudgment(action)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '0.6rem 1.35rem',
+                            borderRadius: 999,
+                            border: 'none',
+                            background: action.bg,
+                            color: '#ffffff',
+                            fontWeight: 700,
+                            fontSize: '0.84rem',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 6px rgba(15,23,42,0.12)'
+                          }}
+                        >
+                          <Icon size={15} />
+                          <span>{action.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </>
           )}
 
-          {activeTab === 'evidence' && (
+          {activeTab === 'evidence' && photos.length > 0 && (
             <div>
               <div style={{ marginBottom: '1rem' }}>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Inspection Photographic Evidence</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--slate-500)', margin: 0 }}>
-                  Timestamped photographic evidence logged during the on-site physical surveillance
-                </p>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700 }}>
+                  Inspection Photographic Evidence
+                </h4>
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '1rem'
+                }}
+              >
                 {photos.map((item, idx) => (
                   <div
                     key={idx}
@@ -314,8 +812,7 @@ export default function AuditDetailModal({ audit, onClose }) {
                       borderRadius: 'var(--radius-md)',
                       overflow: 'hidden',
                       cursor: 'pointer',
-                      background: '#ffffff',
-                      boxShadow: 'var(--shadow-xs)'
+                      background: '#ffffff'
                     }}
                   >
                     <div style={{ position: 'relative', height: 160, overflow: 'hidden' }}>
@@ -324,193 +821,37 @@ export default function AuditDetailModal({ audit, onClose }) {
                         alt={item.title}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
-                      <div style={{
-                        position: 'absolute',
-                        bottom: 6,
-                        right: 6,
-                        background: 'rgba(0,0,0,0.7)',
-                        color: '#fff',
-                        padding: '2px 6px',
-                        borderRadius: 4,
-                        fontSize: '0.7rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.25rem'
-                      }}>
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: 6,
+                          right: 6,
+                          background: 'rgba(0,0,0,0.7)',
+                          color: '#fff',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          fontSize: '0.7rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
                         <Eye size={12} /> View High-Res
                       </div>
                     </div>
-                    <div style={{ padding: '0.6rem 0.75rem' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--slate-800)' }}>
-                        {item.title}
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--slate-500)', marginTop: 2 }}>
-                        Captured on site • {liveAudit.auditDate}
-                      </div>
+                    <div style={{ padding: '0.6rem 0.75rem', fontWeight: 700, fontSize: '0.82rem' }}>
+                      {item.title}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-
-          {activeTab === 'signatures' && (
-            <div>
-              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.25rem' }}>Authorized Inspection Sign-Off</h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--slate-500)', marginBottom: '1.25rem' }}>
-                Cryptographically bound digital signatures executed upon completion of on-site audit
-              </p>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
-                <div style={{
-                  padding: '1.25rem',
-                  background: 'var(--slate-50)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--slate-200)'
-                }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--slate-500)', textTransform: 'uppercase' }}>
-                    STORE REPRESENTATIVE SIGN-OFF
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--slate-900)', marginTop: 2 }}>
-                    {liveAudit.storeRepresentative}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginBottom: '0.75rem' }}>
-                    General Manager, KFC {liveAudit.storeName}
-                  </div>
-
-                  <div style={{
-                    height: '100px',
-                    background: '#ffffff',
-                    border: '1px solid var(--slate-300)',
-                    borderRadius: 'var(--radius-sm)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0.5rem',
-                    position: 'relative'
-                  }}>
-                    {liveAudit.signatureStoreRep ? (
-                      <img
-                        src={liveAudit.signatureStoreRep}
-                        alt="Store Rep Signature"
-                        style={{ maxHeight: '80px', maxWidth: '90%', objectFit: 'contain' }}
-                      />
-                    ) : (
-                      <div style={{ fontFamily: 'cursive', fontSize: '1.4rem', color: '#0f172a' }}>
-                        {liveAudit.storeRepresentative}
-                      </div>
-                    )}
-                    <div style={{ position: 'absolute', bottom: 4, right: 8, fontSize: '0.65rem', color: '#059669', fontWeight: 700 }}>
-                      ✓ Digitally Verified
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{
-                  padding: '1.25rem',
-                  background: 'var(--slate-50)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--slate-200)'
-                }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--slate-500)', textTransform: 'uppercase' }}>
-                    LEAD HFA AUDITOR SIGN-OFF
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--slate-900)', marginTop: 2 }}>
-                    {liveAudit.auditor}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--slate-500)', marginBottom: '0.75rem' }}>
-                    HFA Halal Certification Executive
-                  </div>
-
-                  <div style={{
-                    height: '100px',
-                    background: '#ffffff',
-                    border: '1px solid var(--slate-300)',
-                    borderRadius: 'var(--radius-sm)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '0.5rem',
-                    position: 'relative'
-                  }}>
-                    {liveAudit.signatureAuditor ? (
-                      <img
-                        src={liveAudit.signatureAuditor}
-                        alt="Auditor Signature"
-                        style={{ maxHeight: '80px', maxWidth: '90%', objectFit: 'contain' }}
-                      />
-                    ) : (
-                      <div style={{ fontFamily: 'cursive', fontSize: '1.4rem', color: '#0f172a' }}>
-                        {liveAudit.auditor}
-                      </div>
-                    )}
-                    <div style={{ position: 'absolute', bottom: 4, right: 8, fontSize: '0.65rem', color: '#059669', fontWeight: 700 }}>
-                      ✓ HFA Official Stamp
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Workflow Transitions */}
-          <div style={{
-            marginTop: '1.5rem',
-            padding: '1.1rem',
-            background: 'var(--slate-100)',
-            borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--slate-300)'
-          }}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 700, marginBottom: '0.65rem', color: 'var(--slate-800)' }}>
-              Supervisory Workflow Actions:
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {liveAudit.category !== 'Passed' && (
-                <button
-                  onClick={() => updateAuditCategory(liveAudit.id, 'Passed')}
-                  className="btn btn-primary btn-sm"
-                >
-                  <CheckCircle2 size={14} />
-                  <span>Approve & Issue Certificate</span>
-                </button>
-              )}
-
-              {liveAudit.category !== 'Review List' && (
-                <button
-                  onClick={() => updateAuditCategory(liveAudit.id, 'Review List')}
-                  className="btn btn-outline btn-sm"
-                >
-                  <Clock size={14} />
-                  <span>Move to Review List</span>
-                </button>
-              )}
-
-              {liveAudit.category !== 'Other Fail' && (
-                <button
-                  onClick={() => updateAuditCategory(liveAudit.id, 'Other Fail')}
-                  className="btn btn-outline btn-sm"
-                >
-                  <AlertTriangle size={14} color="#d97706" />
-                  <span>Flag as Other Fail</span>
-                </button>
-              )}
-
-              {liveAudit.category !== 'L3 Critical Fail' && (
-                <button
-                  onClick={() => updateAuditCategory(liveAudit.id, 'L3 Critical Fail')}
-                  className="btn btn-kfc btn-sm"
-                >
-                  <AlertOctagon size={14} />
-                  <span>Escalate to Critical L3 Fail</span>
-                </button>
-              )}
-            </div>
-          </div>
         </div>
 
         <div className="modal-footer">
           <button type="button" onClick={onClose} className="btn btn-outline">
-            Close Dossier
+            Close
           </button>
         </div>
       </div>
@@ -533,9 +874,10 @@ export default function AuditDetailModal({ audit, onClose }) {
             <img
               src={selectedPhoto}
               alt="High Resolution Evidence"
-              style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '8px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}
+              style={{ maxWidth: '100%', maxHeight: '85vh', borderRadius: '8px' }}
             />
             <button
+              type="button"
               onClick={() => setSelectedPhoto(null)}
               style={{
                 position: 'absolute',
@@ -547,11 +889,7 @@ export default function AuditDetailModal({ audit, onClose }) {
                 width: 32,
                 height: 32,
                 cursor: 'pointer',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                fontWeight: 800
               }}
             >
               ×

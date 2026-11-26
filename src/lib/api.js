@@ -56,9 +56,9 @@ export const api = {
     method: 'PATCH',
     body: JSON.stringify(data)
   }),
-  updateAuditCategory: (id, category) => fetchJson(`/audits/${id}/category`, {
+  updateAuditCategory: (id, category, extra = {}) => fetchJson(`/audits/${id}/category`, {
     method: 'PATCH',
-    body: JSON.stringify({ category })
+    body: JSON.stringify({ category, ...extra })
   }),
   deleteAudit: (id) => fetchJson(`/audits/${id}`, { method: 'DELETE' }),
 
