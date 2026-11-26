@@ -62,7 +62,13 @@ export default function AuditsPage({ fixedCategory }) {
   const [editingAudit, setEditingAudit] = useState(null);
   const [deletingAudit, setDeletingAudit] = useState(null);
   const [isNewAuditOpen, setIsNewAuditOpen] = useState(false);
-  const isRecommendForPass = activeCategory === 'Recommend For Pass';
+  const useViewEditDeleteActions = [
+    'Recommend For Pass',
+    'Review List',
+    'Passed',
+    'Other Fail',
+    'L3 Critical Fail',
+  ].includes(activeCategory);
 
   useEffect(() => {
     setActiveCategory(getCategoryFromPath());
@@ -679,7 +685,7 @@ export default function AuditsPage({ fixedCategory }) {
                     <td style={{ textAlign: 'right' }}>
                       <ActionMenu
                         items={
-                          isRecommendForPass
+                          useViewEditDeleteActions
                             ? [
                                 {
                                   label: 'View',
