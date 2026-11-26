@@ -19,10 +19,12 @@ export default function AssignmentsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [auditStoreId, setAuditStoreId] = useState(null);
 
+  const todayIso = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({
     storeId: String(stores[0]?.id || '1'),
     auditor: 'Rashid',
-    date: new Date().toISOString().split('T')[0],
+    startDate: todayIso,
+    endDate: todayIso,
     session: 'Round Two 2026'
   });
 
@@ -59,7 +61,9 @@ export default function AssignmentsPage() {
       branchCode: st.branchCode,
       franchisee: st.franchisee,
       auditor: form.auditor,
-      date: form.date,
+      date: form.startDate,
+      startDate: form.startDate,
+      endDate: form.endDate || form.startDate,
       session: form.session
     });
     setIsModalOpen(false);
@@ -272,7 +276,11 @@ export default function AssignmentsPage() {
                       </div>
                     </td>
                     <td>
-                      <div className="tabular-nums" style={{ fontSize: '12.5px', fontWeight: 600 }}>{asg.date}</div>
+                      <div className="tabular-nums" style={{ fontSize: '12.5px', fontWeight: 600 }}>
+                        {asg.startDate && asg.endDate && asg.startDate !== asg.endDate
+                          ? `${asg.startDate} → ${asg.endDate}`
+                          : asg.startDate || asg.date}
+                      </div>
                     </td>
                     <td>
                       <span className="badge badge-neutral">{asg.session}</span>
@@ -384,15 +392,36 @@ export default function AssignmentsPage() {
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Scheduled Target Date *</label>
-                  <input
-                    type="date"
-                    required
-                    className="form-input"
-                    value={form.date}
-                    onChange={e => setForm({ ...form, date: e.target.value })}
-                  />
+                <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Beginning Date *</label>
+                    <input
+                      type="date"
+                      required
+                      className="form-input"
+                      value={form.startDate}
+                      onChange={e => {
+                        const nextStart = e.target.value;
+                        setForm(prev => ({
+                          ...prev,
+                          startDate: nextStart,
+                          endDate: prev.endDate && prev.endDate < nextStart ? nextStart : prev.endDate
+                        }));
+                      }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Ending Date *</label>
+                    <input
+                      type="date"
+                      required
+                      min={form.startDate}
+                      className="form-input"
+                      value={form.endDate}
+                      onChange={e => setForm({ ...form, endDate: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
 
