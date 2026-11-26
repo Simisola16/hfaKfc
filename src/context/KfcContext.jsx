@@ -429,12 +429,16 @@ export function KfcProvider({ children }) {
 
   // 5. Assignments CRUD
   const addAssignment = async (asgData) => {
+    const startDate = asgData.startDate || asgData.date || new Date().toISOString().split('T')[0];
+    const endDate = asgData.endDate || startDate;
     const payload = {
       storeName: asgData.storeName,
       branchCode: asgData.branchCode || 'KFC-BR',
       franchisee: asgData.franchisee || 'KFC Franchise',
       auditor: asgData.auditor,
-      date: asgData.date,
+      date: startDate,
+      startDate,
+      endDate,
       session: asgData.session || 'Round Two 2026',
       status: 'Scheduled',
       notification: 'E-mail Dispatched'

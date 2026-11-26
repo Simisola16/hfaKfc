@@ -2,11 +2,18 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useKfc } from '../context/KfcContext';
 import { X, ClipboardCheck, Calendar, Building2, Store, UserCheck, Layers } from 'lucide-react';
 
-const ROUND_OPTIONS = ['Round One', 'Round Two', 'Round Three',];
+const ROUND_OPTIONS = ['Round One', 'Round Two', 'Round Three', 'Surveillance'];
 const YEAR_OPTIONS = ['2026', '2025', '2024', '2023', '2022', '2021', '2020'];
 
-export default function NewAuditModal({ isOpen, onClose, defaultStoreId }) {
-  const { stores, franchisees, audits, users, currentUser, addAudit } = useKfc();
+export default function NewAuditModal({
+  isOpen,
+  onClose,
+  defaultStoreId,
+  title = 'Assign',
+  subtitle = 'Select session, franchisee, store, auditor, and date',
+  submitLabel = 'Assign',
+}) {
+  const { stores, franchisees, audits, assignments, users, currentUser, addAssignment } = useKfc();
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -25,9 +32,12 @@ export default function NewAuditModal({ isOpen, onClose, defaultStoreId }) {
     audits.forEach(a => {
       if (a.auditor) names.add(a.auditor);
     });
+    assignments.forEach(a => {
+      if (a.auditor) names.add(a.auditor);
+    });
     if (currentUser?.username) names.add(currentUser.username);
     return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [users, audits, currentUser]);
+  }, [users, audits, assignments, currentUser]);
 
   const defaultStore = useMemo(
     () => stores.find(s => String(s.id) === String(defaultStoreId)) || stores[0] || null,
@@ -56,6 +66,9 @@ export default function NewAuditModal({ isOpen, onClose, defaultStoreId }) {
     } else if (franchiseeOptions.length > 0 && !selectedFranchisee) {
       setSelectedFranchisee(franchiseeOptions[0]);
     }
+    const freshToday = new Date().toISOString().split('T')[0];
+    setBeginningDate(freshToday);
+    setEndingDate(freshToday);
   }, [isOpen, defaultStoreId, stores, franchiseeOptions]);
 
   // Stores filtered to the chosen Franchisee
@@ -87,18 +100,18 @@ export default function NewAuditModal({ isOpen, onClose, defaultStoreId }) {
     e.preventDefault();
     if (!currentSelectedStore || !sessionRound || !sessionYear || !auditor || !beginningDate) return;
 
-    addAudit({
+    const finalEndDate = endingDate && endingDate >= beginningDate ? endingDate : beginningDate;
+
+    addAssignment({
       storeId: currentSelectedStore.id,
       storeName: currentSelectedStore.name,
       branchCode: currentSelectedStore.branchCode,
-      address: currentSelectedStore.address,
-      postcode: currentSelectedStore.postcode,
       franchisee: selectedFranchisee || currentSelectedStore.franchisee,
-      franchiseeId: currentSelectedStore.franchiseeId,
       auditor,
+      date: beginningDate,
+      startDate: beginningDate,
+      endDate: finalEndDate,
       session: `${sessionRound} ${sessionYear}`,
-      auditDate: beginningDate,
-      endDate: endingDate || beginningDate,
     });
     onClose();
   };
@@ -127,9 +140,9 @@ export default function NewAuditModal({ isOpen, onClose, defaultStoreId }) {
               <ClipboardCheck size={19} />
             </div>
             <div>
-              <h3 className="card-title" style={{ margin: 0 }}>Assign</h3>
+              <h3 className="card-title" style={{ margin: 0 }}>{title}</h3>
               <p style={{ fontSize: '12px', color: 'var(--slate-500)', margin: '2px 0 0' }}>
-                Select session, franchisee, store, auditor, and date
+                {subtitle}
               </p>
             </div>
           </div>
@@ -274,6 +287,7 @@ export default function NewAuditModal({ isOpen, onClose, defaultStoreId }) {
                   </span>
                   <input
                     type="date"
+                    required
                     className="form-input"
                     min={beginningDate || undefined}
                     value={endingDate}
@@ -293,7 +307,7 @@ export default function NewAuditModal({ isOpen, onClose, defaultStoreId }) {
               className="btn btn-primary"
               disabled={!currentSelectedStore}
             >
-              Assign
+              {submitLabel}
             </button>
           </div>
         </form>
