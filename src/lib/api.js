@@ -112,9 +112,12 @@ export const api = {
     body: JSON.stringify({ username, password })
   }),
 
-  // Map
+  // Map & Auditor Activity Logs
   getMapStores: () => fetchJson('/map/stores'),
-  getMapLogs: () => fetchJson('/map/logs')
+  getMapLogs: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return fetchJson(query ? `/map/logs?${query}` : '/map/logs');
+  }
 };
 
 export default api;

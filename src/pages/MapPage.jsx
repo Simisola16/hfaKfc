@@ -253,7 +253,7 @@ export default function MapPage() {
       const marker = L.marker([log.lat, log.lng], { icon: customIcon }).addTo(map);
 
       marker.bindPopup(`
-        <div style="font-family: var(--font-sans); min-width: 180px; padding: 2px;">
+        <div style="font-family: var(--font-sans); min-width: 210px; padding: 3px;">
           <div style="font-size: 10px; font-weight: 800; color: #2563eb; text-transform: uppercase;">
             LIVE AUDITOR GPS PING
           </div>
@@ -261,11 +261,14 @@ export default function MapPage() {
             ${log.auditor}
           </div>
           <div style="font-size: 11px; color: #475569; margin: 4px 0;">
-            Site: ${log.storeName}
+            Site: <strong>${log.storeName}</strong>
           </div>
-          <div style="font-size: 10px; color: #64748b;">
-            ${log.activity} • ${log.date} ${log.time}
+          <div style="font-size: 10.5px; color: #334155; margin-bottom: 3px;">
+            Activity: <strong>${log.activity || 'Check-In'}</strong> • ${log.date} ${log.time}
           </div>
+          ${log.ipAddress ? `<div style="font-size: 10px; color: #0f172a; font-family: monospace;">IP: ${log.ipAddress}</div>` : ''}
+          ${log.location ? `<div style="font-size: 10px; color: #64748b; margin-top: 2px;">${log.location}</div>` : ''}
+          ${log.device ? `<div style="font-size: 10px; color: #64748b; margin-top: 2px;">Device: ${log.device}</div>` : ''}
         </div>
       `);
 

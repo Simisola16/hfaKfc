@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useKfc } from '../context/KfcContext';
+import api from '../lib/api';
+import toast from 'react-hot-toast';
 import {
   X,
   CheckCircle2,
@@ -11,7 +13,14 @@ import {
   Camera,
   Eye,
   ShieldCheck,
-  FileText
+  FileText,
+  Activity,
+  Share2,
+  FolderOpen,
+  UserCheck,
+  Building2,
+  RefreshCw,
+  MapPin
 } from 'lucide-react';
 
 const CHECKLIST_POINTS = [
@@ -101,18 +110,24 @@ function formatAuditorRecommendation(audit) {
 
 export default function AuditDetailModal({ audit, onClose }) {
   const navigate = useNavigate();
-  const { audits, stores, updateAuditCategory } = useKfc();
+  const { audits, stores, gpsLogs, currentUser, updateAuditCategory, updateAudit } = useKfc();
   const [activeTab, setActiveTab] = useState('outcome');
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [adminReason, setAdminReason] = useState('');
   const [pendingJudgment, setPendingJudgment] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Nested sub-modals for Auditor LogIn/Out, Share List, and View Files
+  const [subModal, setSubModal] = useState(null); // 'logs' | 'shares' | 'files' | null
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
   // Always keep admin judgment Reason empty by default when opening/switching audits
   useEffect(() => {
     setAdminReason('');
     setPendingJudgment(null);
     setActiveTab('outcome');
+    setSubModal(null);
   }, [audit?.id]);
 
   if (!audit) return null;
@@ -210,6 +225,65 @@ export default function AuditDetailModal({ audit, onClose }) {
       setIsSubmitting(false);
     }
   };
+
+  const handleOpenAuditorLogs = async () => {
+    setSubModal('logs');
+    setLoadingLogs(true);
+    try {
+      const res = await api.getMapLogs({
+        storeName: liveAudit.storeName || '',
+        limit: 100
+      });
+      const fetched = Array.isArray(res?.data) ? res.data : [];
+      if (fetched.length > 0) {
+        setActivityLogs(fetched);
+      } else {
+        // Fallback to context gpsLogs matching store or auditor
+        const matched = (gpsLogs || []).filter(
+          (l) =>
+            String(l.storeName || '').toLowerCase() === String(liveAudit.storeName || '').toLowerCase() ||
+            String(l.auditor || '').toLowerCase() === String(liveAudit.auditor || '').toLowerCase()
+        );
+        setActivityLogs(matched);
+      }
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const handleShareAudit = async (recipientType, recipientLabel) => {
+    const newEntry = {
+      id: `share-${Date.now()}`,
+      recipientType,
+      recipient: recipientLabel,
+      sharedBy: currentUser?.fullName || currentUser?.username || 'HFA Admin',
+      sharedAt: new Date().toLocaleString(),
+      status: 'Shared'
+    };
+    const nextHistory = [newEntry, ...(Array.isArray(liveAudit.shareHistory) ? liveAudit.shareHistory : [])];
+    await updateAudit(liveAudit.id, { shareHistory: nextHistory });
+    toast.success(`Outcome sheet shared with ${recipientLabel}`);
+  };
+
+  const handleUpdateNotes = async () => {
+    if (!adminReason.trim()) {
+      toast('Enter a reason or note above to update.', { icon: 'ℹ️' });
+      return;
+    }
+    await updateAudit(liveAudit.id, { adminDecisionReason: adminReason.trim() });
+    setAdminReason('');
+  };
+
+  const attachedFiles = Object.entries(outcomeData.files || {})
+    .filter(([, f]) => f && f.name)
+    .map(([slot, f], idx) => ({
+      id: slot,
+      label: `Attachment ${idx + 1}`,
+      name: f.name,
+      sizeKB: f.sizeKB || 0
+    }));
+
+  const shareHistory = Array.isArray(liveAudit.shareHistory) ? liveAudit.shareHistory : [];
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -785,6 +859,148 @@ export default function AuditDetailModal({ audit, onClose }) {
                     })}
                   </div>
                 )}
+
+                {/* 6 Secondary Action Buttons under Final Admin Judgment */}
+                <div
+                  style={{
+                    marginTop: '1.15rem',
+                    paddingTop: '1rem',
+                    borderTop: '2px solid #f97316',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={handleOpenAuditorLogs}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '0.5rem 0.9rem',
+                      borderRadius: 8,
+                      border: '1px solid #0f2942',
+                      background: '#0c3b6e',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Activity size={14} />
+                    <span>Auditor LogIn/Out</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSubModal('shares')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '0.5rem 0.9rem',
+                      borderRadius: 8,
+                      border: '1px solid #0f2942',
+                      background: '#0c3b6e',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Share2 size={14} />
+                    <span>Share List ({shareHistory.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSubModal('files')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '0.5rem 0.9rem',
+                      borderRadius: 8,
+                      border: '1px solid #0f2942',
+                      background: '#0c3b6e',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <FolderOpen size={14} />
+                    <span>View Files ({attachedFiles.length + photos.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleShareAudit('Store Representative', `Store Representative (${storeRep})`)
+                    }
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '0.5rem 0.9rem',
+                      borderRadius: 8,
+                      border: '1px solid #1d4ed8',
+                      background: '#2563eb',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <UserCheck size={14} />
+                    <span>Share Store Representative</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleShareAudit('KFC Headquarters', `KFC HQ (${liveAudit.franchisee || 'KFC'})`)
+                    }
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '0.5rem 0.9rem',
+                      borderRadius: 8,
+                      border: '1px solid #1d4ed8',
+                      background: '#2563eb',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Building2 size={14} />
+                    <span>Share KFC</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleUpdateNotes}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '0.5rem 0.9rem',
+                      borderRadius: 8,
+                      border: '1px solid #1d4ed8',
+                      background: '#1d4ed8',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <RefreshCw size={14} />
+                    <span>Update</span>
+                  </button>
+                </div>
               </div>
             </>
           )}
@@ -855,6 +1071,242 @@ export default function AuditDetailModal({ audit, onClose }) {
           </button>
         </div>
       </div>
+
+      {/* Nested Sub-Modals: Auditor LogIn/Out, Share List, View Files */}
+      {subModal && (
+        <div
+          onClick={() => setSubModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.72)',
+            zIndex: 9998,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1.25rem'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#ffffff',
+              borderRadius: '14px',
+              width: '100%',
+              maxWidth: subModal === 'logs' ? 1040 : 640,
+              maxHeight: '85vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 24px 48px rgba(0,0,0,0.35)',
+              border: '1px solid #e2e8f0'
+            }}
+          >
+            <div
+              style={{
+                background: '#0f172a',
+                color: '#ffffff',
+                padding: '0.9rem 1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.75rem'
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {subModal === 'logs' && <><Activity size={16} color="#38bdf8" /> <span>Auditor LogIn / Out Activity — {liveAudit.storeName}</span></>}
+                {subModal === 'shares' && <><Share2 size={16} color="#38bdf8" /> <span>Outcome Sheet Share List</span></>}
+                {subModal === 'files' && <><FolderOpen size={16} color="#38bdf8" /> <span>Attached Files &amp; Evidence</span></>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {subModal === 'logs' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubModal(null);
+                      onClose();
+                      navigate('/map');
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '0.35rem 0.75rem',
+                      borderRadius: 6,
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'rgba(255,255,255,0.1)',
+                      color: '#ffffff',
+                      fontSize: '0.74rem',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <MapPin size={13} />
+                    <span>Open Auditors Map</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSubModal(null)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#94a3b8',
+                    cursor: 'pointer',
+                    padding: 4
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ padding: '1rem 1.25rem', overflowY: 'auto', flex: 1 }}>
+              {subModal === 'logs' && (
+                loadingLogs ? (
+                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                    Loading auditor activity logs...
+                  </div>
+                ) : activityLogs.length === 0 ? (
+                  <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                    No login/logout or audit activity logs recorded yet for <strong>{liveAudit.storeName}</strong>.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 10 }}>
+                    <table className="data-table" style={{ margin: 0, minWidth: 880, fontSize: '0.78rem' }}>
+                      <thead>
+                        <tr>
+                          <th>Store Name</th>
+                          <th>Auditor</th>
+                          <th>Time</th>
+                          <th>Activities</th>
+                          <th>Location</th>
+                          <th>IP Address</th>
+                          <th>Device</th>
+                          <th>Date</th>
+                          <th>Session</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activityLogs.map((log, i) => (
+                          <tr key={log._id || log.id || i}>
+                            <td style={{ fontWeight: 700, color: '#0f172a' }}>{log.storeName || liveAudit.storeName}</td>
+                            <td style={{ fontWeight: 600 }}>{log.auditor}</td>
+                            <td style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{log.time}</td>
+                            <td>
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  padding: '2px 8px',
+                                  borderRadius: 999,
+                                  fontWeight: 700,
+                                  fontSize: '0.72rem',
+                                  background: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  border: '1px solid #bfdbfe'
+                                }}
+                              >
+                                {log.activity}
+                              </span>
+                            </td>
+                            <td style={{ maxWidth: 220, fontSize: '0.74rem', color: '#475569' }}>
+                              {log.location || (log.lat && log.lng ? `Location: ${log.lat},${log.lng}` : '—')}
+                            </td>
+                            <td style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#0f172a' }}>
+                              {log.ipAddress || '—'}
+                            </td>
+                            <td style={{ maxWidth: 200, fontSize: '0.74rem', color: '#475569' }}>
+                              {log.device || '—'}
+                            </td>
+                            <td style={{ whiteSpace: 'nowrap' }}>{log.date}</td>
+                            <td style={{ whiteSpace: 'nowrap' }}>{log.session || liveAudit.session || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              )}
+
+              {subModal === 'shares' && (
+                shareHistory.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                    This outcome sheet has not been shared yet. Use <strong>Share Store Representative</strong> or <strong>Share KFC</strong> to dispatch it.
+                  </div>
+                ) : (
+                  <table className="data-table" style={{ margin: 0, fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr>
+                        <th>Recipient</th>
+                        <th>Shared By</th>
+                        <th>Date &amp; Time</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shareHistory.map((item, idx) => (
+                        <tr key={item.id || idx}>
+                          <td style={{ fontWeight: 700 }}>{item.recipient}</td>
+                          <td>{item.sharedBy}</td>
+                          <td style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{item.sharedAt}</td>
+                          <td><span className="badge badge-pass">{item.status || 'Shared'}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              )}
+
+              {subModal === 'files' && (
+                attachedFiles.length === 0 && photos.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
+                    No files or photos were attached to this audit.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {attachedFiles.map((f) => (
+                      <div
+                        key={f.id}
+                        style={{
+                          padding: '0.75rem 1rem',
+                          borderRadius: 10,
+                          border: '1px solid #e2e8f0',
+                          background: '#f8fafc',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          fontSize: '0.82rem'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{f.name}</div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                            {f.label} {f.sizeKB ? `• ${f.sizeKB} KB` : ''}
+                          </div>
+                        </div>
+                        <span className="badge badge-blue">Uploaded</span>
+                      </div>
+                    ))}
+                    {photos.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginTop: 4 }}>
+                        {photos.map((p, idx) => (
+                          <img
+                            key={idx}
+                            src={p.url}
+                            alt={p.title}
+                            onClick={() => setSelectedPhoto(p.url)}
+                            style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '1px solid #e2e8f0' }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedPhoto && (
         <div

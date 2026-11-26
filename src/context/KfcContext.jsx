@@ -462,6 +462,8 @@ export function KfcProvider({ children }) {
           category: mergedAudit.category,
           storeRepresentative: mergedAudit.storeRepresentative,
           complianceSummary: mergedAudit.complianceSummary,
+          adminDecisionReason: mergedAudit.adminDecisionReason,
+          shareHistory: mergedAudit.shareHistory,
         }
       : updates;
 
