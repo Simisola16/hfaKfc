@@ -1236,116 +1236,11 @@ export default function DashboardPage() {
 
         {/* RIGHT STICKY OPERATIONAL RAIL */}
         <aside className="dashv2-rail">
-          {/* Card 1: Pending Actions */}
+          {/* Card 1: Auditor Activity (GPS Pings + Assign List) */}
           <div className="dashv2-panel">
             <div className="dashv2-panel-head" style={{ padding: '14px 16px' }}>
               <div>
-                <h2 className="dashv2-panel-title">Pending Actions</h2>
-                <p className="dashv2-panel-sub">Items awaiting review or approval</p>
-              </div>
-              <span className="badge badge-warn tabular-nums">{actionItems.length} Open</span>
-            </div>
-
-            <div className="dashv2-panel-body" style={{ padding: '12px 14px 14px' }}>
-              <div className="dash-queue-tabs" style={{ marginBottom: 10 }}>
-                {[
-                  { key: 'all', label: 'All', count: actionItems.length },
-                  { key: 'critical', label: 'L3', count: actionItems.filter(i => i.category === 'critical').length },
-                  { key: 'rfp', label: 'RFP', count: actionItems.filter(i => i.category === 'rfp').length },
-                  { key: 'appeals', label: 'Appeals', count: pendingAppealsCount },
-                  { key: 'requests', label: 'Req', count: pendingRequestsCount },
-                ].map(t => (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => setQueueTab(t.key)}
-                    className={`dash-queue-tab ${queueTab === t.key ? 'active' : ''}`}
-                    style={{ padding: '4px 8px', fontSize: '11px' }}
-                  >
-                    <span>{t.label}</span>
-                    <span className="tabular-nums" style={{ opacity: 0.75 }}>{t.count}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {inlineQueueItems.length === 0 ? (
-                  <div style={{ padding: '22px 12px', textAlign: 'center', fontSize: '12.5px', color: '#64748b' }}>
-                    Queue clear for this category.
-                  </div>
-                ) : (
-                  inlineQueueItems.map(item => {
-                    const Icon = item.icon;
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => {
-                          if (item.auditObj) setSelectedAudit(item.auditObj);
-                          else navigate(item.path);
-                        }}
-                        className="dashv2-triage-row"
-                        style={{ borderLeftColor: item.stageColor }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
-                          <div style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: 7,
-                            background: item.stageBg,
-                            color: item.stageColor,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}>
-                            <Icon size={14} />
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {item.title}
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {item.sub}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                          <span style={{
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            padding: '2px 7px',
-                            borderRadius: 6,
-                            background: item.stageBg,
-                            color: item.stageColor,
-                          }}>
-                            {item.stageLabel}
-                          </span>
-                          <ChevronRight size={13} color="#94a3b8" />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowActionModal(true)}
-                className="btn btn-outline btn-sm"
-                style={{ width: '100%', marginTop: 10 }}
-              >
-                <span>Open Full Action Queue ({actionItems.length})</span>
-                <ArrowRight size={13} />
-              </button>
-            </div>
-          </div>
-
-          {/* Card 2: Auditor Activity (GPS Pings + Assign List) */}
-          <div className="dashv2-panel">
-            <div className="dashv2-panel-head" style={{ padding: '14px 16px' }}>
-              <div>
-                <h3 className="dashv2-panel-title">Auditor Activity</h3>
+                <h2 className="dashv2-panel-title">Auditor Activity</h2>
                 <p className="dashv2-panel-sub">Click coordinates to view on map</p>
               </div>
               <div className="segmented-tabs" style={{ padding: 2 }}>
@@ -1466,6 +1361,111 @@ export default function DashboardPage() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Card 2: Pending Actions */}
+          <div className="dashv2-panel">
+            <div className="dashv2-panel-head" style={{ padding: '14px 16px' }}>
+              <div>
+                <h3 className="dashv2-panel-title">Pending Actions</h3>
+                <p className="dashv2-panel-sub">Items awaiting review or approval</p>
+              </div>
+              <span className="badge badge-warn tabular-nums">{actionItems.length} Open</span>
+            </div>
+
+            <div className="dashv2-panel-body" style={{ padding: '12px 14px 14px' }}>
+              <div className="dash-queue-tabs" style={{ marginBottom: 10 }}>
+                {[
+                  { key: 'all', label: 'All', count: actionItems.length },
+                  { key: 'critical', label: 'L3', count: actionItems.filter(i => i.category === 'critical').length },
+                  { key: 'rfp', label: 'RFP', count: actionItems.filter(i => i.category === 'rfp').length },
+                  { key: 'appeals', label: 'Appeals', count: pendingAppealsCount },
+                  { key: 'requests', label: 'Req', count: pendingRequestsCount },
+                ].map(t => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setQueueTab(t.key)}
+                    className={`dash-queue-tab ${queueTab === t.key ? 'active' : ''}`}
+                    style={{ padding: '4px 8px', fontSize: '11px' }}
+                  >
+                    <span>{t.label}</span>
+                    <span className="tabular-nums" style={{ opacity: 0.75 }}>{t.count}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {inlineQueueItems.length === 0 ? (
+                  <div style={{ padding: '22px 12px', textAlign: 'center', fontSize: '12.5px', color: '#64748b' }}>
+                    Queue clear for this category.
+                  </div>
+                ) : (
+                  inlineQueueItems.map(item => {
+                    const Icon = item.icon;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => {
+                          if (item.auditObj) setSelectedAudit(item.auditObj);
+                          else navigate(item.path);
+                        }}
+                        className="dashv2-triage-row"
+                        style={{ borderLeftColor: item.stageColor }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
+                          <div style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 7,
+                            background: item.stageBg,
+                            color: item.stageColor,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}>
+                            <Icon size={14} />
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {item.title}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {item.sub}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                          <span style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            padding: '2px 7px',
+                            borderRadius: 6,
+                            background: item.stageBg,
+                            color: item.stageColor,
+                          }}>
+                            {item.stageLabel}
+                          </span>
+                          <ChevronRight size={13} color="#94a3b8" />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowActionModal(true)}
+                className="btn btn-outline btn-sm"
+                style={{ width: '100%', marginTop: 10 }}
+              >
+                <span>Open Full Action Queue ({actionItems.length})</span>
+                <ArrowRight size={13} />
+              </button>
             </div>
           </div>
 
