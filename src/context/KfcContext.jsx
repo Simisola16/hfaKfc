@@ -142,14 +142,8 @@ export function KfcProvider({ children }) {
         connected = true;
       }
       if (logsRes?.data?.length > 0) {
-        const enrichedLogs = logsRes.data.map(l => {
-          const byName = l.storeName ? realStoreCoordsMap.get(String(l.storeName).trim().toLowerCase()) : null;
-          if (byName) {
-            return { ...l, lat: Number((byName.lat + 0.0012).toFixed(5)), lng: Number((byName.lng - 0.0012).toFixed(5)) };
-          }
-          return l;
-        });
-        setGpsLogs(ensureUniqueIds(enrichedLogs, 'log'));
+        // Keep exact auditor GPS coordinates as recorded — never substitute store coordinates
+        setGpsLogs(ensureUniqueIds(logsRes.data, 'log'));
         connected = true;
       }
       if (usersRes?.data?.length > 0) {
@@ -648,6 +642,23 @@ export function KfcProvider({ children }) {
     toast.success('Staff access status updated');
   };
 
+  const addGpsLog = async (logData) => {
+    const tempId = `log-${Date.now()}`;
+    const optimistic = { ...logData, id: tempId };
+    setGpsLogs(prev => [optimistic, ...prev]);
+
+    const res = await api.createMapLog(logData);
+    if (res?.data?._id || res?.data?.id) {
+      const realId = String(res.data._id || res.data.id);
+      setGpsLogs(prev => {
+        const withoutTemp = prev.filter(l => String(l.id) !== tempId && String(l.id) !== realId);
+        return [{ ...res.data, id: realId }, ...withoutTemp];
+      });
+      return { ...res.data, id: realId };
+    }
+    return optimistic;
+  };
+
   return (
     <KfcContext.Provider value={{
       currentUser,
@@ -684,7 +695,8 @@ export function KfcProvider({ children }) {
       addRequest,
       updateRequestStatus,
       addUser,
-      toggleUserActive
+      toggleUserActive,
+      addGpsLog
     }}>
       {children}
     </KfcContext.Provider>

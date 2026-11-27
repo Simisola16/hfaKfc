@@ -114,7 +114,8 @@ export const api = {
 
   // Map
   getMapStores: () => fetchJson('/map/stores'),
-  getMapLogs: () => fetchJson('/map/logs')
+  getMapLogs: () => fetchJson('/map/logs'),
+  createMapLog: (data) => fetchJson('/map/logs', { method: 'POST', body: JSON.stringify(data) })
 };
 
 export default api;

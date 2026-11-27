@@ -1,14 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useKfc } from '../context/KfcContext';
 import {
   MapPin, Store, Navigation, Radio, ShieldCheck,
-  ExternalLink, Calendar, Search, Crosshair, ZoomIn, Award, ClipboardCheck, Layers
+  ExternalLink, Calendar, Search, Crosshair, ZoomIn, Award, ClipboardCheck, Layers,
+  Play, Flag, Activity
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
 import NewAuditModal from '../components/NewAuditModal';
+import {
+  buildAuditorActivitySessions,
+  getCoordCacheKey,
+  isCoordOnlyLabel,
+  resolveMissingRealLocations,
+  reverseGeocodeClient,
+} from '../lib/auditorActivity';
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -37,7 +45,7 @@ const TILE_PROVIDERS = {
 
 export default function MapPage() {
   const navigate = useNavigate();
-  const { stores, gpsLogs, currentUser } = useKfc();
+  const { stores, audits, gpsLogs, currentUser, addGpsLog } = useKfc();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState('ALL');
@@ -45,7 +53,7 @@ export default function MapPage() {
   const [tileMode, setTileMode] = useState('osm');
   const [activeStore, setActiveStore] = useState(null);
   const [showAuditorLogs, setShowAuditorLogs] = useState(true);
-  const [liveCheckIns, setLiveCheckIns] = useState([]);
+  const [sidebarTab, setSidebarTab] = useState('activity');
   const [auditStoreId, setAuditStoreId] = useState(null);
 
   const mapContainerRef = useRef(null);
@@ -53,6 +61,44 @@ export default function MapPage() {
   const tileLayerRef = useRef(null);
   const storeMarkersRef = useRef([]);
   const auditorMarkersRef = useRef([]);
+  const auditorMarkersByKeyRef = useRef(new Map());
+
+  const rawActivitySessions = useMemo(
+    () => buildAuditorActivitySessions(gpsLogs, audits),
+    [gpsLogs, audits]
+  );
+
+  const [resolvedGeoLabels, setResolvedGeoLabels] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    resolveMissingRealLocations(rawActivitySessions, 12).then(found => {
+      if (!cancelled && Object.keys(found).length > 0) {
+        setResolvedGeoLabels(prev => ({ ...prev, ...found }));
+      }
+    });
+    return () => { cancelled = true; };
+  }, [rawActivitySessions]);
+
+  const activitySessions = useMemo(
+    () =>
+      rawActivitySessions.map(sess => {
+        const startKey = getCoordCacheKey(sess.startLat, sess.startLng);
+        const endKey = getCoordCacheKey(sess.endLat, sess.endLng);
+        return {
+          ...sess,
+          startLocationLabel:
+            isCoordOnlyLabel(sess.startLocationLabel) && resolvedGeoLabels[startKey]
+              ? resolvedGeoLabels[startKey]
+              : sess.startLocationLabel,
+          endLocationLabel:
+            isCoordOnlyLabel(sess.endLocationLabel) && resolvedGeoLabels[endKey]
+              ? resolvedGeoLabels[endKey]
+              : sess.endLocationLabel,
+        };
+      }),
+    [rawActivitySessions, resolvedGeoLabels]
+  );
 
   const cities = ['London', 'Birmingham', 'Manchester', 'Bolton', 'Leeds', 'Bristol', 'Glasgow', 'Sheffield', 'Cardiff', 'Liverpool', 'Newcastle'];
 
@@ -205,73 +251,150 @@ export default function MapPage() {
     }
   }, [filteredStores, activeStore]);
 
-  // Sync Auditor GPS Pings
+  // Sync Auditor Start & End GPS Pins onto Map
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
     auditorMarkersRef.current.forEach(m => m.remove());
     auditorMarkersRef.current = [];
+    auditorMarkersByKeyRef.current = new Map();
 
     if (!showAuditorLogs) return;
 
-    const allPings = [...liveCheckIns, ...gpsLogs.slice(0, 20)];
+    const escapeHtml = (val) =>
+      String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 
-    allPings.forEach(log => {
-      if (!log.lat || !log.lng) return;
-
-      const auditorIconHtml = `
-        <div style="
-          position: relative;
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          background: #2563eb;
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 2px solid #ffffff;
-          box-shadow: 0 0 10px rgba(37, 99, 235, 0.55);
-          cursor: pointer;
-        ">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-            <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
-        </div>
-      `;
-
-      const customIcon = L.divIcon({
-        html: auditorIconHtml,
+    const makeBadgeIcon = (letter, bg) =>
+      L.divIcon({
+        html: `<div style="width:26px;height:26px;border-radius:50%;background:${bg};color:#ffffff;display:flex;align-items:center;justify-content:center;border:2px solid #ffffff;box-shadow:0 2px 10px rgba(15,23,42,0.38);font-size:10.5px;font-weight:800;font-family:var(--font-sans);cursor:pointer;">${letter}</div>`,
         className: 'auditor-gps-marker',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-        popupAnchor: [0, -14]
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+        popupAnchor: [0, -14],
       });
 
-      const marker = L.marker([log.lat, log.lng], { icon: customIcon }).addTo(map);
+    activitySessions.slice(0, 30).forEach(sess => {
+      const hasStart = Number.isFinite(sess.startLat) && Number.isFinite(sess.startLng);
+      const hasEnd = Number.isFinite(sess.endLat) && Number.isFinite(sess.endLng);
+      if (!hasStart && !hasEnd) return;
 
-      marker.bindPopup(`
-        <div style="font-family: var(--font-sans); min-width: 180px; padding: 2px;">
-          <div style="font-size: 10px; font-weight: 800; color: #2563eb; text-transform: uppercase;">
-            LIVE AUDITOR GPS PING
-          </div>
-          <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">
-            ${log.auditor}
-          </div>
-          <div style="font-size: 11px; color: #475569; margin: 4px 0;">
-            Site: ${log.storeName}
-          </div>
-          <div style="font-size: 10px; color: #64748b;">
-            ${log.activity} • ${log.date} ${log.time}
-          </div>
-        </div>
-      `);
+      const samePoint =
+        hasStart &&
+        hasEnd &&
+        Math.abs(sess.startLat - sess.endLat) < 0.00005 &&
+        Math.abs(sess.startLng - sess.endLng) < 0.00005;
 
-      auditorMarkersRef.current.push(marker);
+      if (samePoint) {
+        const marker = L.marker([sess.startLat, sess.startLng], {
+          icon: makeBadgeIcon('S/E', '#0f766e'),
+        }).addTo(map);
+        marker.bindPopup(`
+          <div style="font-family: var(--font-sans); min-width: 220px; padding: 2px;">
+            <div style="font-size: 10px; font-weight: 800; color: #0f766e; text-transform: uppercase;">
+              START &amp; END GPS LOCATION
+            </div>
+            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">
+              ${escapeHtml(sess.auditor)} • ${escapeHtml(sess.storeName)}
+            </div>
+            <div style="font-size: 11px; color: #059669; font-weight: 600; margin-top: 5px;">
+              Start: ${escapeHtml(sess.startTime || '—')} (${escapeHtml(sess.startSourceTag)})
+            </div>
+            <div style="font-size: 11px; color: #2563eb; font-weight: 600; margin-top: 2px;">
+              End: ${escapeHtml(sess.endTime || 'In Progress')} (${escapeHtml(sess.endSourceTag || 'Recorded')})
+            </div>
+            <div style="font-size: 11px; color: #475569; margin-top: 5px; border-top: 1px solid #e2e8f0; padding-top: 4px;">
+              ${escapeHtml(sess.startLocationLabel)}<br/>
+              <span style="font-family: monospace; font-size: 10.5px;">${sess.startLat.toFixed(5)}, ${sess.startLng.toFixed(5)}</span>
+            </div>
+          </div>
+        `);
+        auditorMarkersRef.current.push(marker);
+        auditorMarkersByKeyRef.current.set(`${sess.id}:start`, marker);
+        auditorMarkersByKeyRef.current.set(`${sess.id}:end`, marker);
+        return;
+      }
+
+      if (hasStart) {
+        const startMarker = L.marker([sess.startLat, sess.startLng], {
+          icon: makeBadgeIcon('S', '#059669'),
+        }).addTo(map);
+        startMarker.bindPopup(`
+          <div style="font-family: var(--font-sans); min-width: 210px; padding: 2px;">
+            <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase;">
+              AUDIT START GPS • ${escapeHtml(sess.startSourceTag)}
+            </div>
+            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">
+              ${escapeHtml(sess.auditor)} • ${escapeHtml(sess.storeName)}
+            </div>
+            <div style="font-size: 11.5px; color: #059669; font-weight: 700; margin-top: 4px;">
+              Start Time: ${escapeHtml(sess.startTime || '—')} (${escapeHtml(sess.date)})
+            </div>
+            <div style="font-size: 11px; color: #475569; margin-top: 3px;">
+              ${escapeHtml(sess.startLocationLabel)}
+            </div>
+            <div style="font-family: monospace; font-size: 10.5px; color: #64748b; margin-top: 3px;">
+              ${sess.startLat.toFixed(5)}, ${sess.startLng.toFixed(5)}
+            </div>
+          </div>
+        `);
+        auditorMarkersRef.current.push(startMarker);
+        auditorMarkersByKeyRef.current.set(`${sess.id}:start`, startMarker);
+      }
+
+      if (hasEnd) {
+        const endMarker = L.marker([sess.endLat, sess.endLng], {
+          icon: makeBadgeIcon('E', '#2563eb'),
+        }).addTo(map);
+        endMarker.bindPopup(`
+          <div style="font-family: var(--font-sans); min-width: 210px; padding: 2px;">
+            <div style="font-size: 10px; font-weight: 800; color: #2563eb; text-transform: uppercase;">
+              AUDIT END GPS • ${escapeHtml(sess.endSourceTag || 'Recorded')}
+            </div>
+            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">
+              ${escapeHtml(sess.auditor)} • ${escapeHtml(sess.storeName)}
+            </div>
+            <div style="font-size: 11.5px; color: #2563eb; font-weight: 700; margin-top: 4px;">
+              End Time: ${escapeHtml(sess.endTime || '—')} (${escapeHtml(sess.date)})
+            </div>
+            <div style="font-size: 11px; color: #475569; margin-top: 3px;">
+              ${escapeHtml(sess.endLocationLabel)}
+            </div>
+            <div style="font-family: monospace; font-size: 10.5px; color: #64748b; margin-top: 3px;">
+              ${sess.endLat.toFixed(5)}, ${sess.endLng.toFixed(5)}
+              ${sess.distanceLabel ? ` • ${escapeHtml(sess.distanceLabel)} from start` : ''}
+            </div>
+          </div>
+        `);
+        auditorMarkersRef.current.push(endMarker);
+        auditorMarkersByKeyRef.current.set(`${sess.id}:end`, endMarker);
+      }
+
+      if (hasStart && hasEnd) {
+        const line = L.polyline(
+          [[sess.startLat, sess.startLng], [sess.endLat, sess.endLng]],
+          { color: '#2563eb', weight: 2.5, dashArray: '6, 6', opacity: 0.75 }
+        ).addTo(map);
+        auditorMarkersRef.current.push(line);
+      }
     });
-  }, [gpsLogs, liveCheckIns, showAuditorLogs]);
+  }, [activitySessions, showAuditorLogs]);
+
+  const handleFocusActivityPin = (lat, lng, markerKey) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    setShowAuditorLogs(true);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([lat, lng], 16, { duration: 0.9 });
+      setTimeout(() => {
+        const marker = auditorMarkersByKeyRef.current.get(markerKey);
+        if (marker) marker.openPopup();
+      }, 450);
+    }
+  };
 
   const handleSelectStore = (st) => {
     setActiveStore(st);
@@ -291,49 +414,58 @@ export default function MapPage() {
       toast.error('Geolocation is not supported by this browser');
       return;
     }
-    toast.loading('Acquiring device GPS signal...', { id: 'gps-toast' });
+    toast.loading('Acquiring high-accuracy GPS signal...', { id: 'gps-toast' });
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const ping = {
-          id: `live-${Date.now()}`,
-          auditor: currentUser?.fullName || 'Taoheed HFA',
-          storeName: activeStore ? `${activeStore.name} (Field Check-In)` : 'Live Device Location',
-          activity: 'On-Site GPS Check-In',
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      async (pos) => {
+        const latitude = Number(pos.coords.latitude.toFixed(6));
+        const longitude = Number(pos.coords.longitude.toFixed(6));
+        const accuracy = Number.isFinite(pos.coords.accuracy) ? Math.round(pos.coords.accuracy) : null;
+        const addressLabel = await reverseGeocodeClient(latitude, longitude);
+        const now = new Date();
+        const timeStr = now.toTimeString().split(' ')[0];
+        const dateStr = now.toISOString().split('T')[0];
+
+        await addGpsLog({
+          auditor: currentUser?.fullName || currentUser?.username || 'HFA Admin',
+          storeName: activeStore ? activeStore.name : 'Live Field Check-In',
+          branchCode: activeStore?.branchCode || '',
+          activity: 'Live GPS Check-In',
+          eventType: 'start',
+          date: dateStr,
+          time: timeStr,
+          startTime: timeStr,
+          startDate: dateStr,
           lat: latitude,
-          lng: longitude
-        };
-        setLiveCheckIns(prev => [ping, ...prev]);
+          lng: longitude,
+          startLat: latitude,
+          startLng: longitude,
+          accuracy,
+          startAccuracy: accuracy,
+          gpsSource: 'gps',
+          startGpsSource: 'gps',
+          location: addressLabel,
+          startLocation: addressLabel,
+        });
+
         setShowAuditorLogs(true);
+        setSidebarTab('activity');
         if (mapInstanceRef.current) {
-          mapInstanceRef.current.flyTo([latitude, longitude], 14, { duration: 1.1 });
+          mapInstanceRef.current.flyTo([latitude, longitude], 16, { duration: 1.1 });
         }
-        toast.success(`Live GPS Check-In logged (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, { id: 'gps-toast' });
+        toast.success(
+          `GPS Check-In logged (${latitude.toFixed(5)}, ${longitude.toFixed(5)}${accuracy ? `, ±${accuracy}m` : ''})`,
+          { id: 'gps-toast' }
+        );
       },
-      () => {
-        const target = activeStore || stores[0];
-        if (target) {
-          const ping = {
-            id: `live-${Date.now()}`,
-            auditor: currentUser?.fullName || 'Taoheed HFA',
-            storeName: target.name,
-            activity: 'Verified Branch GPS Check-In',
-            date: new Date().toISOString().split('T')[0],
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            lat: target.lat + 0.0005,
-            lng: target.lng - 0.0005
-          };
-          setLiveCheckIns(prev => [ping, ...prev]);
-          setShowAuditorLogs(true);
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.flyTo([target.lat, target.lng], 15, { duration: 1.0 });
-          }
-          toast.success(`Checked in at ${target.name} (${target.postcode})`, { id: 'gps-toast' });
-        }
+      (err) => {
+        toast.error(
+          err?.code === 1
+            ? 'Location permission denied. Enable browser location access for accurate GPS check-in.'
+            : 'Could not obtain a live GPS lock. Please check your device location settings.',
+          { id: 'gps-toast' }
+        );
       },
-      { enableHighAccuracy: true, timeout: 6000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
     );
   };
 
@@ -463,11 +595,15 @@ export default function MapPage() {
                 <span>Inspection Due / NC ({stores.filter(s => s.status !== 'Passed' && !s.halalCertified).length})</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#059669', border: '1.5px solid #047857', display: 'inline-block' }} />
+                <span>Start GPS (S)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#2563eb', display: 'inline-block' }} />
-                <span>Auditor GPS Check-Ins</span>
+                <span>End GPS (E)</span>
               </div>
             </div>
-            <span style={{ fontSize: '11.5px', color: '#94a3b8' }}>UK ONS Postcode Geocoding</span>
+            <span style={{ fontSize: '11.5px', color: '#94a3b8' }}>Live Device GPS &amp; UK ONS Geocoding</span>
           </div>
         </div>
 
@@ -568,49 +704,202 @@ export default function MapPage() {
             </div>
           )}
 
-          {/* Matching Branches List */}
-          <div className="page-surface" style={{ display: 'flex', flexDirection: 'column', maxHeight: '300px' }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>
-              Matching UK Branches ({filteredStores.length})
+          {/* Tabbed Auditor Activity (Start/End GPS) & Matching Branches Panel */}
+          <div className="page-surface" style={{ display: 'flex', flexDirection: 'column', maxHeight: '420px' }}>
+            <div style={{
+              padding: '10px 12px',
+              borderBottom: '1px solid #f1f5f9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 8,
+            }}>
+              <div className="segmented-tabs" style={{ width: '100%', padding: 3 }}>
+                <button
+                  type="button"
+                  onClick={() => setSidebarTab('activity')}
+                  className={`segmented-tab ${sidebarTab === 'activity' ? 'active' : ''}`}
+                  style={{ flex: 1, justifyContent: 'center', padding: '5px 8px', fontSize: '11.5px' }}
+                >
+                  <Activity size={12} />
+                  <span>Auditor Activity ({activitySessions.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSidebarTab('branches')}
+                  className={`segmented-tab ${sidebarTab === 'branches' ? 'active' : ''}`}
+                  style={{ flex: 1, justifyContent: 'center', padding: '5px 8px', fontSize: '11.5px' }}
+                >
+                  <Store size={12} />
+                  <span>Branches ({filteredStores.length})</span>
+                </button>
+              </div>
             </div>
-            <div style={{ overflowY: 'auto', flex: 1, padding: '6px' }}>
-              {filteredStores.slice(0, 40).map((st, idx) => {
-                const isAct = activeStore && String(activeStore.id) === String(st.id);
-                return (
-                  <div
-                    key={`map-st-${st.id}-${idx}`}
-                    onClick={() => handleSelectStore(st)}
-                    style={{
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      marginBottom: '2px',
-                      cursor: 'pointer',
-                      background: isAct ? '#ecfdf5' : 'transparent',
-                      borderLeft: isAct ? '3px solid #059669' : '3px solid transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                      transition: 'all 0.15s ease'
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: '12.5px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {st.name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>
-                        {st.branchCode} • {st.postcode} • {st.franchisee}
-                      </div>
-                    </div>
-                    {st.status === 'Passed' || st.halalCertified ? (
-                      <span className="badge badge-pass" style={{ fontSize: '10.5px', padding: '2px 7px' }}>Pass</span>
-                    ) : (
-                      <span className="badge badge-warn" style={{ fontSize: '10.5px', padding: '2px 7px' }}>Due</span>
-                    )}
+
+            {sidebarTab === 'activity' ? (
+              <div style={{ overflowY: 'auto', flex: 1, padding: '8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {activitySessions.length === 0 ? (
+                  <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: '12.5px', color: '#64748b' }}>
+                    No auditor GPS activity recorded yet.
                   </div>
-                );
-              })}
-            </div>
+                ) : (
+                  activitySessions.slice(0, 25).map((sess, idx) => (
+                    <div
+                      key={`map-sess-${sess.id}-${idx}`}
+                      style={{
+                        padding: '9px 10px',
+                        borderRadius: '10px',
+                        border: '1px solid #e2e8f0',
+                        background: '#ffffff',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 6,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                        <span style={{ fontWeight: 700, fontSize: '12.5px', color: '#0f172a' }}>
+                          {sess.auditor}
+                        </span>
+                        <span className="tabular-nums" style={{ fontSize: '10.5px', color: '#64748b' }}>
+                          {sess.date}{sess.durationLabel ? ` • ${sess.durationLabel}` : ''}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {sess.branchCode ? `${sess.branchCode} • ` : ''}{sess.storeName}
+                      </div>
+
+                      {/* Start Time + Start Location */}
+                      <div style={{
+                        padding: '6px 8px',
+                        borderRadius: 7,
+                        background: '#f0fdf4',
+                        border: '1px solid #dcfce7',
+                        fontSize: '11px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                          <span style={{ fontWeight: 700, color: '#047857', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Play size={10} fill="#059669" color="#059669" />
+                            <span>Start:</span>
+                            <span className="tabular-nums" style={{ color: '#0f172a' }}>{sess.startTime || 'Not recorded'}</span>
+                          </span>
+                          {Number.isFinite(sess.startLat) && Number.isFinite(sess.startLng) && (
+                            <button
+                              type="button"
+                              onClick={() => handleFocusActivityPin(sess.startLat, sess.startLng, `${sess.id}:start`)}
+                              className="dashv2-coord-btn"
+                              title={`Zoom to Start GPS (${sess.startSourceTag})`}
+                            >
+                              <MapPin size={10} />
+                              <span>{sess.startLat.toFixed(4)}, {sess.startLng.toFixed(4)}</span>
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, color: '#334155' }}>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sess.startLocationLabel}</span>
+                          <span style={{ fontSize: '9.5px', fontWeight: 700, color: sess.startGpsSource === 'gps' ? '#047857' : '#64748b', flexShrink: 0 }}>
+                            {sess.startSourceTag}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* End Time + End Location */}
+                      <div style={{
+                        padding: '6px 8px',
+                        borderRadius: 7,
+                        background: sess.endTime ? '#eff6ff' : '#f8fafc',
+                        border: sess.endTime ? '1px solid #dbeafe' : '1px dashed #cbd5e1',
+                        fontSize: '11px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                          <span style={{ fontWeight: 700, color: sess.endTime ? '#1d4ed8' : '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Flag size={10} color={sess.endTime ? '#2563eb' : '#94a3b8'} />
+                            <span>End:</span>
+                            <span className="tabular-nums" style={{ color: sess.endTime ? '#0f172a' : '#64748b' }}>
+                              {sess.endTime || 'In Progress'}
+                            </span>
+                          </span>
+                          {Number.isFinite(sess.endLat) && Number.isFinite(sess.endLng) && (
+                            <button
+                              type="button"
+                              onClick={() => handleFocusActivityPin(sess.endLat, sess.endLng, `${sess.id}:end`)}
+                              className="dashv2-coord-btn"
+                              style={{ borderColor: '#bfdbfe', color: '#1d4ed8' }}
+                              title={`Zoom to End GPS (${sess.endSourceTag})`}
+                            >
+                              <MapPin size={10} />
+                              <span>{sess.endLat.toFixed(4)}, {sess.endLng.toFixed(4)}</span>
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, color: '#334155' }}>
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sess.endLocationLabel}</span>
+                          {sess.endSourceTag && (
+                            <span style={{ fontSize: '9.5px', fontWeight: 700, color: sess.endGpsSource === 'gps' ? '#1d4ed8' : '#64748b', flexShrink: 0 }}>
+                              {sess.endSourceTag}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {sess.distanceLabel && (
+                        <div style={{ fontSize: '10.5px', color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>{sess.activity}</span>
+                          <span className="tabular-nums" style={{ fontWeight: 600, color: sess.distanceMeters > 250 ? '#d97706' : '#059669' }}>
+                            Start → End: {sess.distanceLabel}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <div style={{ overflowY: 'auto', flex: 1, padding: '6px' }}>
+                {filteredStores.slice(0, 40).map((st, idx) => {
+                  const isAct = activeStore && String(activeStore.id) === String(st.id);
+                  return (
+                    <div
+                      key={`map-st-${st.id}-${idx}`}
+                      onClick={() => handleSelectStore(st)}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        marginBottom: '2px',
+                        cursor: 'pointer',
+                        background: isAct ? '#ecfdf5' : 'transparent',
+                        borderLeft: isAct ? '3px solid #059669' : '3px solid transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: '12.5px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {st.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          {st.branchCode} • {st.postcode} • {st.franchisee}
+                        </div>
+                      </div>
+                      {st.status === 'Passed' || st.halalCertified ? (
+                        <span className="badge badge-pass" style={{ fontSize: '10.5px', padding: '2px 7px' }}>Pass</span>
+                      ) : (
+                        <span className="badge badge-warn" style={{ fontSize: '10.5px', padding: '2px 7px' }}>Due</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

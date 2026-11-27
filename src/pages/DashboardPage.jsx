@@ -5,10 +5,16 @@ import 'leaflet/dist/leaflet.css';
 import { useKfc } from '../context/KfcContext';
 import AuditDetailModal from '../components/AuditDetailModal';
 import {
+  buildAuditorActivitySessions,
+  getCoordCacheKey,
+  isCoordOnlyLabel,
+  resolveMissingRealLocations,
+} from '../lib/auditorActivity';
+import {
   Store, Package, Clock, AlertTriangle, AlertOctagon, ArrowRight,
   ShieldCheck, MapPin, RefreshCw, Search, Filter, X, Plus, Eye,
   Download, Inbox, ShieldAlert, ChevronRight, Activity, Award,
-  Navigation, Layers, CalendarCheck, Crosshair, Building2
+  Navigation, Layers, CalendarCheck, Crosshair, Building2, Play, Flag
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
@@ -127,6 +133,45 @@ export default function DashboardPage() {
     () => assignments.filter(a => a.status === 'Scheduled' || a.status === 'In Progress'),
     [assignments]
   );
+
+  const rawActivitySessions = useMemo(
+    () => buildAuditorActivitySessions(gpsLogs, audits),
+    [gpsLogs, audits]
+  );
+
+  const [resolvedGeoLabels, setResolvedGeoLabels] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    resolveMissingRealLocations(rawActivitySessions, 8).then(found => {
+      if (!cancelled && Object.keys(found).length > 0) {
+        setResolvedGeoLabels(prev => ({ ...prev, ...found }));
+      }
+    });
+    return () => { cancelled = true; };
+  }, [rawActivitySessions]);
+
+  const activitySessions = useMemo(
+    () =>
+      rawActivitySessions.map(sess => {
+        const startKey = getCoordCacheKey(sess.startLat, sess.startLng);
+        const endKey = getCoordCacheKey(sess.endLat, sess.endLng);
+        return {
+          ...sess,
+          startLocationLabel:
+            isCoordOnlyLabel(sess.startLocationLabel) && resolvedGeoLabels[startKey]
+              ? resolvedGeoLabels[startKey]
+              : sess.startLocationLabel,
+          endLocationLabel:
+            isCoordOnlyLabel(sess.endLocationLabel) && resolvedGeoLabels[endKey]
+              ? resolvedGeoLabels[endKey]
+              : sess.endLocationLabel,
+        };
+      }),
+    [rawActivitySessions, resolvedGeoLabels]
+  );
+
+  const pingMarkersByKeyRef = useRef(new Map());
 
   const pendingAppealsCount = appeals.filter(ap => ap.status === 'Under Investigation').length;
   const pendingRequestsCount = requests.filter(
@@ -379,18 +424,27 @@ export default function DashboardPage() {
     return mapStores[0] || stores[0] || null;
   }, [focusedStoreId, mapStores, stores]);
 
-  const flyToLocation = useCallback((lat, lng, zoom = 11) => {
+  const flyToLocation = useCallback((lat, lng, zoom = 11, markerKey = null) => {
     const numLat = Number(lat);
     const numLng = Number(lng);
     if (!Number.isFinite(numLat) || !Number.isFinite(numLng)) return;
+    if (markerKey && !showMapPings) {
+      setShowMapPings(true);
+    }
     const map = mapInstanceRef.current;
     if (map) {
       map.flyTo([numLat, numLng], zoom, { duration: 0.7 });
+      if (markerKey) {
+        setTimeout(() => {
+          const m = pingMarkersByKeyRef.current.get(markerKey);
+          if (m) m.openPopup();
+        }, 450);
+      }
     }
     if (mapPanelRef.current && window.innerWidth < 1240) {
       mapPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  }, []);
+  }, [showMapPings]);
 
   // Initialize Embedded Leaflet Map once
   useEffect(() => {
@@ -490,41 +544,120 @@ export default function DashboardPage() {
       marker.addTo(layer);
     });
 
+    pingMarkersByKeyRef.current = new Map();
+
     if (showMapPings) {
-      gpsLogs.slice(0, 15).forEach(log => {
-        const lat = Number(log.lat);
-        const lng = Number(log.lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      activitySessions.slice(0, 15).forEach(sess => {
+        const hasStart = Number.isFinite(sess.startLat) && Number.isFinite(sess.startLng);
+        const hasEnd = Number.isFinite(sess.endLat) && Number.isFinite(sess.endLng);
+        if (!hasStart && !hasEnd) return;
 
-        const ping = L.circleMarker([lat, lng], {
-          radius: 6,
-          color: '#ffffff',
-          weight: 2,
-          fillColor: '#2563eb',
-          fillOpacity: 0.95,
-        });
+        const samePoint =
+          hasStart &&
+          hasEnd &&
+          Math.abs(sess.startLat - sess.endLat) < 0.00005 &&
+          Math.abs(sess.startLng - sess.endLng) < 0.00005;
 
-        ping.bindPopup(`
-          <div style="font-family: var(--font-sans); min-width: 170px;">
-            <div style="font-size: 10px; font-weight: 800; color: #2563eb; text-transform: uppercase;">
-              Auditor GPS Ping
-            </div>
-            <div style="font-size: 12.5px; font-weight: 700; color: #0f172a; margin-top: 2px;">
-              ${escapeHtml(log.auditor)}
-            </div>
-            <div style="font-size: 11.5px; color: #475569;">
-              ${escapeHtml(log.storeName)}
-            </div>
-            <div style="font-size: 11px; color: #059669; font-weight: 600; margin-top: 3px;">
-              ${escapeHtml(log.activity)} • ${escapeHtml(log.time)}
-            </div>
-          </div>
-        `);
+        const makeBadgeIcon = (letter, bg) =>
+          L.divIcon({
+            html: `<div style="width:22px;height:22px;border-radius:50%;background:${bg};color:#fff;border:2px solid #fff;box-shadow:0 2px 8px rgba(15,23,42,0.35);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;font-family:var(--font-sans);">${letter}</div>`,
+            className: 'auditor-pin-badge',
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+            popupAnchor: [0, -12],
+          });
 
-        ping.addTo(layer);
+        if (samePoint) {
+          const marker = L.marker([sess.startLat, sess.startLng], {
+            icon: makeBadgeIcon('S/E', '#0f766e'),
+          }).bindPopup(`
+            <div style="font-family: var(--font-sans); min-width: 220px;">
+              <div style="font-size: 10px; font-weight: 800; color: #0f766e; text-transform: uppercase;">
+                Auditor Start &amp; End Location
+              </div>
+              <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">
+                ${escapeHtml(sess.auditor)} • ${escapeHtml(sess.storeName)}
+              </div>
+              <div style="font-size: 11px; color: #059669; font-weight: 600; margin-top: 5px;">
+                Start: ${escapeHtml(sess.startTime || '—')} (${escapeHtml(sess.startSourceTag)})
+              </div>
+              <div style="font-size: 11px; color: #2563eb; font-weight: 600; margin-top: 2px;">
+                End: ${escapeHtml(sess.endTime || 'In Progress')} (${escapeHtml(sess.endSourceTag || 'Recorded')})
+              </div>
+              <div style="font-size: 11px; color: #475569; margin-top: 5px; border-top: 1px solid #e2e8f0; padding-top: 4px;">
+                ${escapeHtml(sess.startLocationLabel)}<br/>
+                <span style="font-family: monospace; font-size: 10.5px;">${sess.startLat.toFixed(5)}, ${sess.startLng.toFixed(5)}</span>
+              </div>
+            </div>
+          `);
+          marker.addTo(layer);
+          pingMarkersByKeyRef.current.set(`${sess.id}:start`, marker);
+          pingMarkersByKeyRef.current.set(`${sess.id}:end`, marker);
+          return;
+        }
+
+        if (hasStart) {
+          const startMarker = L.marker([sess.startLat, sess.startLng], {
+            icon: makeBadgeIcon('S', '#059669'),
+          }).bindPopup(`
+            <div style="font-family: var(--font-sans); min-width: 210px;">
+              <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase;">
+                Audit Start Location • ${escapeHtml(sess.startSourceTag)}
+              </div>
+              <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">
+                ${escapeHtml(sess.auditor)} • ${escapeHtml(sess.storeName)}
+              </div>
+              <div style="font-size: 11.5px; color: #059669; font-weight: 700; margin-top: 4px;">
+                Start Time: ${escapeHtml(sess.startTime || '—')} (${escapeHtml(sess.date)})
+              </div>
+              <div style="font-size: 11px; color: #475569; margin-top: 3px;">
+                ${escapeHtml(sess.startLocationLabel)}
+              </div>
+              <div style="font-family: monospace; font-size: 10.5px; color: #64748b; margin-top: 3px;">
+                ${sess.startLat.toFixed(5)}, ${sess.startLng.toFixed(5)}
+              </div>
+            </div>
+          `);
+          startMarker.addTo(layer);
+          pingMarkersByKeyRef.current.set(`${sess.id}:start`, startMarker);
+        }
+
+        if (hasEnd) {
+          const endMarker = L.marker([sess.endLat, sess.endLng], {
+            icon: makeBadgeIcon('E', '#2563eb'),
+          }).bindPopup(`
+            <div style="font-family: var(--font-sans); min-width: 210px;">
+              <div style="font-size: 10px; font-weight: 800; color: #2563eb; text-transform: uppercase;">
+                Audit End Location • ${escapeHtml(sess.endSourceTag || 'Recorded')}
+              </div>
+              <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px;">
+                ${escapeHtml(sess.auditor)} • ${escapeHtml(sess.storeName)}
+              </div>
+              <div style="font-size: 11.5px; color: #2563eb; font-weight: 700; margin-top: 4px;">
+                End Time: ${escapeHtml(sess.endTime || '—')} (${escapeHtml(sess.date)})
+              </div>
+              <div style="font-size: 11px; color: #475569; margin-top: 3px;">
+                ${escapeHtml(sess.endLocationLabel)}
+              </div>
+              <div style="font-family: monospace; font-size: 10.5px; color: #64748b; margin-top: 3px;">
+                ${sess.endLat.toFixed(5)}, ${sess.endLng.toFixed(5)}
+                ${sess.distanceLabel ? ` • ${escapeHtml(sess.distanceLabel)} from start` : ''}
+              </div>
+            </div>
+          `);
+          endMarker.addTo(layer);
+          pingMarkersByKeyRef.current.set(`${sess.id}:end`, endMarker);
+        }
+
+        if (hasStart && hasEnd) {
+          L.polyline(
+            [[sess.startLat, sess.startLng], [sess.endLat, sess.endLng]],
+            { color: '#2563eb', weight: 2, dashArray: '5, 5', opacity: 0.7 }
+          ).addTo(layer);
+        }
       });
     }
-  }, [mapStores, focusedStore, showMapPings, gpsLogs]);
+  }, [mapStores, focusedStore, showMapPings, activitySessions]);
 
   const handleExportBrief = () => {
     const headers = ['Branch Code', 'KFC Store', 'Franchisee', 'Auditor', 'Session Round', 'Audit Date', 'Score', 'Status'];
@@ -793,7 +926,7 @@ export default function DashboardPage() {
                   style={{ height: 32 }}
                 >
                   <Navigation size={13} />
-                  <span>Pings ({gpsLogs.length})</span>
+                  <span>Pings ({activitySessions.length})</span>
                 </button>
 
                 <button
@@ -1263,60 +1396,176 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="dashv2-panel-body" style={{ padding: '10px 16px 14px' }}>
+            <div className="dashv2-panel-body" style={{ padding: '10px 14px 14px' }}>
               {opsTab === 'pings' ? (
-                <div>
-                  {gpsLogs.slice(0, 6).map((log, idx) => (
-                    <div key={`dashv2-ping-${log.id}-${idx}`} className="dashv2-ops-feed-row">
-                      <div style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 8,
-                        background: '#eff6ff',
-                        color: '#2563eb',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '11.5px',
-                        fontWeight: 800,
-                        flexShrink: 0,
-                        marginTop: 2,
-                      }}>
-                        {(log.auditor || 'A').charAt(0).toUpperCase()}
-                      </div>
-
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                          <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0f172a' }}>{log.auditor}</span>
-                          <span className="tabular-nums" style={{ fontSize: '10.5px', color: '#94a3b8' }}>{log.time}</span>
-                        </div>
-                        <div style={{ fontSize: '11.5px', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {log.storeName}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginTop: 4 }}>
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#059669', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <Activity size={11} /> {log.activity}
-                          </span>
-                          {Number.isFinite(Number(log.lat)) && Number.isFinite(Number(log.lng)) && (
-                            <button
-                              type="button"
-                              onClick={() => flyToLocation(log.lat, log.lng, 12)}
-                              className="dashv2-coord-btn"
-                              title="Focus map on auditor GPS coordinates"
-                            >
-                              <MapPin size={10} />
-                              <span>{Number(log.lat).toFixed(2)}, {Number(log.lng).toFixed(2)}</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {activitySessions.length === 0 ? (
+                    <div style={{ padding: '20px 10px', textAlign: 'center', fontSize: '12.5px', color: '#64748b' }}>
+                      No auditor GPS activity recorded yet.
                     </div>
-                  ))}
+                  ) : (
+                    activitySessions.slice(0, 5).map((sess, idx) => (
+                      <div
+                        key={`dashv2-sess-${sess.id}-${idx}`}
+                        style={{
+                          padding: '10px 11px',
+                          borderRadius: 10,
+                          border: '1px solid #e2e8f0',
+                          background: '#ffffff',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 7,
+                        }}
+                      >
+                        {/* Top Header: Auditor + Date + Duration */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 8,
+                            background: '#ecfdf5',
+                            color: '#059669',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11.5px',
+                            fontWeight: 800,
+                            flexShrink: 0,
+                          }}>
+                            {(sess.auditor || 'A').charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                              <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {sess.auditor}
+                              </span>
+                              <span className="tabular-nums" style={{ fontSize: '10.5px', color: '#64748b', flexShrink: 0 }}>
+                                {sess.date}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                              <span style={{ fontSize: '11.5px', color: '#475569', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {sess.branchCode ? `${sess.branchCode} • ` : ''}{sess.storeName}
+                              </span>
+                              {sess.durationLabel && (
+                                <span
+                                  className="tabular-nums"
+                                  style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    padding: '1px 6px',
+                                    borderRadius: 999,
+                                    background: '#f1f5f9',
+                                    color: '#334155',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {sess.durationLabel}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Start Time & Start Location */}
+                        <div style={{
+                          padding: '7px 9px',
+                          borderRadius: 8,
+                          background: '#f0fdf4',
+                          border: '1px solid #dcfce7',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 3,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                            <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#047857', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Play size={10} fill="#059669" color="#059669" />
+                              <span>Start</span>
+                              <span className="tabular-nums" style={{ color: '#0f172a', fontWeight: 700 }}>
+                                {sess.startTime || 'Not recorded'}
+                              </span>
+                            </span>
+                            {Number.isFinite(sess.startLat) && Number.isFinite(sess.startLng) && (
+                              <button
+                                type="button"
+                                onClick={() => flyToLocation(sess.startLat, sess.startLng, 15, `${sess.id}:start`)}
+                                className="dashv2-coord-btn"
+                                title={`Zoom to exact Start location (${sess.startSourceTag})`}
+                              >
+                                <MapPin size={10} />
+                                <span>{sess.startLat.toFixed(4)}, {sess.startLng.toFixed(4)}</span>
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                            <span style={{ fontSize: '11px', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {sess.startLocationLabel}
+                            </span>
+                            <span style={{ fontSize: '9.5px', fontWeight: 700, color: sess.startGpsSource === 'gps' ? '#047857' : '#64748b', flexShrink: 0 }}>
+                              {sess.startSourceTag}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* End Time & End Location */}
+                        <div style={{
+                          padding: '7px 9px',
+                          borderRadius: 8,
+                          background: sess.endTime ? '#eff6ff' : '#f8fafc',
+                          border: sess.endTime ? '1px solid #dbeafe' : '1px dashed #cbd5e1',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 3,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                            <span style={{ fontSize: '10.5px', fontWeight: 800, color: sess.endTime ? '#1d4ed8' : '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <Flag size={10} color={sess.endTime ? '#2563eb' : '#94a3b8'} />
+                              <span>End</span>
+                              <span className="tabular-nums" style={{ color: sess.endTime ? '#0f172a' : '#64748b', fontWeight: 700 }}>
+                                {sess.endTime || 'In Progress'}
+                              </span>
+                            </span>
+                            {Number.isFinite(sess.endLat) && Number.isFinite(sess.endLng) && (
+                              <button
+                                type="button"
+                                onClick={() => flyToLocation(sess.endLat, sess.endLng, 15, `${sess.id}:end`)}
+                                className="dashv2-coord-btn"
+                                style={{ borderColor: '#bfdbfe', color: '#1d4ed8' }}
+                                title={`Zoom to exact End location (${sess.endSourceTag})`}
+                              >
+                                <MapPin size={10} />
+                                <span>{sess.endLat.toFixed(4)}, {sess.endLng.toFixed(4)}</span>
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                            <span style={{ fontSize: '11px', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {sess.endLocationLabel}
+                            </span>
+                            {sess.endSourceTag && (
+                              <span style={{ fontSize: '9.5px', fontWeight: 700, color: sess.endGpsSource === 'gps' ? '#1d4ed8' : '#64748b', flexShrink: 0 }}>
+                                {sess.endSourceTag}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {sess.distanceLabel && (
+                          <div style={{ fontSize: '10.5px', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span>{sess.activity}</span>
+                            <span className="tabular-nums" style={{ fontWeight: 600, color: sess.distanceMeters > 250 ? '#d97706' : '#059669' }}>
+                              Start → End: {sess.distanceLabel}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                   <button
                     type="button"
                     onClick={() => navigate('/map')}
                     className="btn btn-outline btn-sm"
-                    style={{ width: '100%', marginTop: 10 }}
+                    style={{ width: '100%', marginTop: 2 }}
                   >
                     <MapPin size={13} color="#059669" />
                     <span>Open Full UK Map Workspace</span>
